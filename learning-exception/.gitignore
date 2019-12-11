@@ -1,0 +1,30 @@
+# maven #
+target/
+logs
+
+# eclipse #
+.settings
+.project
+.classpath
+.log
+
+# Package Files #
+*.war
+*.ear
+
+# idea #
+.idea/
+*.iml
+*.lck
+*.tmp
+*.class
+vcx.xml
+
+# Package Files #
+*.jar
+*.bak
+*.tmp
+*.log
+*.gz
+
+
