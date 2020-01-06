@@ -18,7 +18,6 @@ public class Demo {
         System.err.println(stackTraceElements.length);
 
 
-
         new Thread(){
             @Override
             public void run() {
