@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Scanner;
 
 /**
- * 此处为类介绍
+ * 交互控制
  *
  * @author yuboon
  * @version v1.0
