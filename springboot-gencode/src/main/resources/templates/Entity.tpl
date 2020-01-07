@@ -1,5 +1,3 @@
-import cn.wp.common.core.dao.annotation.Column;
-import cn.wp.common.core.dao.annotation.Table;
 import lombok.Data;
 
 import java.io.Serializable;
