@@ -24,11 +24,11 @@ https://mp.weixin.qq.com/s/ho6wJFvFKUG6fYlNDJPTIw
 
 ### 关注我
 
-公众号风象南
+公众号「风象南」，持续输出优质内容
+
 
 ![](https://raw.githubusercontent.com/yuboon/java-examples/master/springboot-gencode/doc/image/qrcode.jpg)
 
-持续输出优质内容
 
 
 
