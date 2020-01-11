@@ -8,5 +8,5 @@
 公众号「风象南」，持续输出优质内容
 
 
-![](https://raw.githubusercontent.com/yuboon/java-examples/master/springboot-gencode/doc/image/qrcode.jpg)
+![](https://raw.githubusercontent.com/yuboon/java-examples/master/doc/images/qrcode.jpg)
 
