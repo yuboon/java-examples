@@ -1,7 +1,7 @@
 # java-examples
 ### 通知：仓库迁移说明
 
-**为了给读者创造更好的阅读学习体验，本仓库内容已全部迁移至 [新仓库:风象南公开课](]https://github.com/yuboon/OpenClass )，近期将关闭该仓库。**
+**为了给读者创造更好的阅读学习体验，本仓库内容已全部迁移至 [新仓库:风象南公开课](https://github.com/yuboon/OpenClass )，近期将关闭该仓库。**
 
 
 
