@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI问答系统</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .question-form {
+            margin-bottom: 20px;
+        }
+        #question {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .answer {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+            white-space: pre-wrap;
+        }
+        .loading {
+            color: #888;
+            font-style: italic;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<h1>AI问答系统</h1>
+
+<div class="container">
+    <div class="question-form">
+        <h2>请输入您的问题</h2>
+        <textarea id="question" rows="4" placeholder="例如：什么是Spring AI？"></textarea>
+        <button id="ask-button">提问</button>
+        <p class="loading" id="loading">AI正在思考中，请稍候...</p>
+    </div>
+
+    <div class="answer" id="answer-container" style="display:none;">
+        <h2>回答</h2>
+        <div id="answer-text"></div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('ask-button').addEventListener('click', async function() {
+        const question = document.getElementById('question').value.trim();
+
+        if (!question) {
+            alert('请输入问题');
+            return;
+        }
+
+        // 显示加载状态
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('answer-container').style.display = 'none';
+
+        try {
+            // 普通模式  /api/qa/ask
+            // 会话模式  /api/qa/ask-session
+            // 知识库模式 /api/qa/ask-knowledge
+            const response = await fetch('/api/qa/ask', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ question: question, sessionId: '12345' })
+            });
+
+            if (!response.ok) {
+                throw new Error('服务器错误');
+            }
+
+            const data = await response.json();
+
+            // 显示回答
+            document.getElementById('answer-text').textContent = data.answer;
+            document.getElementById('answer-container').style.display = 'block';
+        } catch (error) {
+            console.error('Error:', error);
+            document.getElementById('answer-text').textContent = '发生错误: ' + error.message;
+            document.getElementById('answer-container').style.display = 'block';
+        } finally {
+            // 隐藏加载状态
+            document.getElementById('loading').style.display = 'none';
+        }
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+server:
+  port: 5555
+
+spring:
+  ai:
+    openai:
+      # 替换为自己的硅基流动API密钥，否则启动报错
+      api-key: sk-xxx
+      base-url: https://api.siliconflow.cn/
+      embedding:
+        options:
+          model: BAAI/bge-m3
+      chat:
+        options:
+          model: deepseek-ai/DeepSeek-V3
