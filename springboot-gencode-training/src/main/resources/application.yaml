@@ -1,0 +1,30 @@
+server:
+  port: 8080
+
+# 默认日志配置
+logging:
+  file: logs/test.log
+  config:    # 日志配置文件,Spring Boot默认使用classpath路径下的日志配置文件,如:logback.xml
+  level:
+    #root: info  # 全局默认级别
+    org.thymeleaf: info # 控制thymeleaf日志级别
+  pattern:
+    #console: "%date{yyyy-MM-dd HH:mm:ss.SSS} %-5level[%thread]%logger{C}.%method:%line -%msg%n"
+    #net.aooms.core: info # 项目级别，覆盖root默认
+
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/demo
+    username: root
+    password: root
+    driver-class-name: com.mysql.jdbc.Driver
+    # 连接池配置
+    maxActive: 200
+    initialSize: 5
+    maxWait: 60000
+    minIdle: 3
+    timeBetweenEvictionRunsMillis: 60000
+    minEvictableIdleTimeMillis: 300000
+    validationQuery: select 'x'
+  thymeleaf:
+    prefix: classpath:/template

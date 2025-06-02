@@ -1,0 +1,197 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f0f2f5;
+    color: #333;
+}
+
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.login-box {
+    flex: 1;
+    max-width: 400px;
+    background-color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    padding: 40px;
+    display: flex;
+    flex-direction: column;
+}
+
+.login-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.login-header h2 {
+    font-size: 24px;
+    color: #333;
+    font-weight: 600;
+}
+
+.login-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.qrcode-area {
+    text-align: center;
+}
+
+.qrcode {
+    width: 210px;
+    height: 210px;
+    margin: 0 auto 20px;
+    padding: 5px;
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.qrcode img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.qrcode-tip {
+    font-size: 14px;
+    color: #666;
+    margin-top: 15px;
+}
+
+.qrcode-tip.scanned {
+    color: #1890ff;
+}
+
+.qrcode-tip.expired {
+    color: #ff4d4f;
+}
+
+.qrcode-tip a {
+    color: #1890ff;
+    text-decoration: none;
+}
+
+.login-success {
+    text-align: center;
+}
+
+.avatar {
+    width: 100px;
+    height: 100px;
+    margin: 0 auto 20px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 2px solid #1890ff;
+}
+
+.avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.welcome h3 {
+    font-size: 20px;
+    margin-bottom: 5px;
+    color: #333;
+}
+
+.welcome p {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 20px;
+}
+
+.logout button {
+    background-color: #f0f0f0;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #333;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.logout button:hover {
+    background-color: #e0e0e0;
+}
+
+.login-footer {
+    margin-top: 30px;
+    text-align: center;
+    font-size: 13px;
+    color: #999;
+}
+
+.login-footer a {
+    color: #1890ff;
+    text-decoration: none;
+}
+
+.login-info {
+    flex: 1;
+    max-width: 400px;
+    margin-left: 20px;
+    padding: 40px;
+    background-color: #1890ff;
+    color: white;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+.login-info h3 {
+    font-size: 22px;
+    margin-bottom: 20px;
+}
+
+.login-info p {
+    margin-bottom: 15px;
+    font-size: 15px;
+}
+
+.login-info ul, .login-info ol {
+    margin-left: 20px;
+    margin-bottom: 15px;
+}
+
+.login-info li {
+    margin-bottom: 8px;
+}
+
+@media (max-width: 768px) {
+    .login-container {
+        flex-direction: column;
+        padding: 0;
+    }
+
+    .login-box {
+        width: 100%;
+        max-width: none;
+        border-radius: 0;
+    }
+
+    .login-info {
+        width: 100%;
+        max-width: none;
+        margin-left: 0;
+        margin-top: 20px;
+        border-radius: 0;
+    }
+}

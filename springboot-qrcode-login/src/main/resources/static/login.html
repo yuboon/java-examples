@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>扫码登录示例</title>
+    <link rel="stylesheet" href="css/login.css">
+</head>
+<body>
+<div class="login-container">
+    <div class="login-box">
+        <div class="login-header">
+            <h2>扫码登录</h2>
+        </div>
+
+        <div class="login-body">
+            <!-- 二维码区域 -->
+            <div id="qrcode-area" class="qrcode-area">
+                <div class="qrcode">
+                    <img id="qrcode-img" src="" alt="二维码">
+                </div>
+                <div id="qrcode-tip" class="qrcode-tip">
+                    请使用手机扫描二维码登录
+                </div>
+            </div>
+
+            <!-- 登录成功区域 -->
+            <div id="login-success" class="login-success" style="display: none;">
+                <div class="avatar">
+                    <img id="user-avatar" src="" alt="头像">
+                </div>
+                <div class="welcome">
+                    <h3 id="user-welcome">欢迎回来</h3>
+                    <p id="user-email"></p>
+                </div>
+                <div class="logout">
+                    <button id="logout-btn">退出登录</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="login-footer">
+            <p>如果您没有移动端演示App，可以<a href="mobile.html" target="_blank">点击这里</a>打开移动端模拟页面</p>
+        </div>
+    </div>
+
+    <div class="login-info">
+        <h3>扫码登录演示系统</h3>
+        <p>这是一个基于SpringBoot + WebSocket的扫码登录演示系统。</p>
+        <p>技术栈：</p>
+        <ul>
+            <li>后端：SpringBoot + WebSocket + Redis</li>
+            <li>前端：纯原生HTML/JS</li>
+        </ul>
+        <p>演示流程：</p>
+        <ol>
+            <li>打开"移动端模拟页面"</li>
+            <li>在网页端显示二维码</li>
+            <li>使用移动端模拟页面扫描二维码</li>
+            <li>在移动端确认登录</li>
+            <li>网页端自动登录成功</li>
+        </ol>
+    </div>
+</div>
+
+<script>
+    // 全局变量
+    let qrCodeId = '';
+    let webSocket = null;
+    let refreshTimer = null;
+
+    // DOM元素
+    const qrcodeArea = document.getElementById('qrcode-area');
+    const qrcodeImg = document.getElementById('qrcode-img');
+    const qrcodeTip = document.getElementById('qrcode-tip');
+    const loginSuccess = document.getElementById('login-success');
+    const userAvatar = document.getElementById('user-avatar');
+    const userWelcome = document.getElementById('user-welcome');
+    const userEmail = document.getElementById('user-email');
+    const logoutBtn = document.getElementById('logout-btn');
+
+    // 页面加载时生成二维码
+    window.addEventListener('load', generateQRCode);
+
+    // 退出登录按钮事件
+    logoutBtn.addEventListener('click', logout);
+
+    // 生成二维码
+    async function generateQRCode() {
+        try {
+            const response = await fetch('/api/qrcode/generate');
+            if (!response.ok) {
+                throw new Error('Failed to generate QR code');
+            }
+
+            const data = await response.json();
+            qrCodeId = data.qrCodeId;
+
+            // 更新二维码图片
+            qrcodeImg.src = `/api/qrcode/image/${qrCodeId}`;
+            qrcodeTip.textContent = '请使用手机扫描二维码登录';
+            qrcodeTip.className = 'qrcode-tip';
+
+            // 显示二维码区域
+            qrcodeArea.style.display = 'block';
+            loginSuccess.style.display = 'none';
+
+            // 连接WebSocket
+            connectWebSocket();
+
+            // 设置自动刷新
+            if (refreshTimer) {
+                clearTimeout(refreshTimer);
+            }
+            refreshTimer = setTimeout(refreshQRCode, 120000); // 2分钟后自动刷新
+
+        } catch (error) {
+            console.error('Error generating QR code:', error);
+            qrcodeTip.textContent = '生成二维码失败，请刷新页面重试';
+            qrcodeTip.className = 'qrcode-tip expired';
+        }
+    }
+
+    // 刷新二维码
+    function refreshQRCode() {
+        // 断开WebSocket连接
+        if (webSocket) {
+            webSocket.close();
+            webSocket = null;
+        }
+
+        // 重新生成二维码
+        generateQRCode();
+    }
+
+    // 连接WebSocket
+    function connectWebSocket() {
+        // 关闭现有连接
+        if (webSocket) {
+            webSocket.close();
+        }
+
+        // 创建新连接
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${wsProtocol}//${window.location.host}/ws/qrcode`;
+
+        webSocket = new WebSocket(wsUrl);
+
+        webSocket.onopen = function() {
+            console.log('WebSocket connected');
+
+            // 发送订阅消息
+            const message = {
+                qrCodeId: qrCodeId
+            };
+            webSocket.send(JSON.stringify(message));
+        };
+
+        webSocket.onmessage = function(event) {
+            const message = JSON.parse(event.data);
+            console.log('Received message:', message);
+
+            // 处理状态变更消息
+            if (message.type === 'STATUS_CHANGE') {
+                handleStatusChange(message);
+            }
+        };
+
+        webSocket.onerror = function(error) {
+            console.error('WebSocket error:', error);
+        };
+
+        webSocket.onclose = function() {
+            console.log('WebSocket disconnected');
+        };
+    }
+
+    // 处理状态变更
+    function handleStatusChange(message) {
+        const status = message.status;
+
+        switch (status) {
+            case 'SCANNED':
+                qrcodeTip.textContent = '已扫描，请在手机上确认';
+                qrcodeTip.className = 'qrcode-tip scanned';
+                break;
+
+            case 'CONFIRMED':
+                if (message.userInfo) {
+                    showLoginSuccess(message.userInfo);
+
+                    // 清除自动刷新定时器
+                    if (refreshTimer) {
+                        clearTimeout(refreshTimer);
+                        refreshTimer = null;
+                    }
+                }
+                break;
+
+            case 'CANCELLED':
+            case 'EXPIRED':
+                qrcodeTip.textContent = '二维码已失效，请点击刷新';
+                qrcodeTip.className = 'qrcode-tip expired';
+                qrcodeTip.innerHTML = '二维码已失效，请<a href="javascript:void(0)" onclick="refreshQRCode()">刷新</a>';
+                break;
+        }
+    }
+
+    // 显示登录成功
+    function showLoginSuccess(userInfo) {
+        // 更新用户信息
+        userAvatar.src = userInfo.avatar;
+        userWelcome.textContent = `欢迎回来，${userInfo.username}`;
+        userEmail.textContent = userInfo.email;
+
+        // 隐藏二维码，显示登录成功
+        qrcodeArea.style.display = 'none';
+        loginSuccess.style.display = 'block';
+
+        // 存储用户信息到本地存储
+        localStorage.setItem('userInfo', JSON.stringify(userInfo));
+
+        // 关闭WebSocket连接
+        if (webSocket) {
+            webSocket.close();
+            webSocket = null;
+        }
+    }
+
+    // 退出登录
+    function logout() {
+        // 清除本地存储的用户信息
+        localStorage.removeItem('userInfo');
+
+        // 刷新二维码
+        refreshQRCode();
+    }
+
+    // 检查本地存储中是否有用户信息
+    (function checkLocalStorage() {
+        const storedUserInfo = localStorage.getItem('userInfo');
+        if (storedUserInfo) {
+            try {
+                const userInfo = JSON.parse(storedUserInfo);
+                showLoginSuccess(userInfo);
+            } catch (e) {
+                console.error('Failed to parse user info:', e);
+                localStorage.removeItem('userInfo');
+            }
+        }
+    })();
+</script>
+</body>
+</html>

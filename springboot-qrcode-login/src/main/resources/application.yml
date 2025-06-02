@@ -1,0 +1,18 @@
+spring:
+  redis:
+    host: localhost
+    port: 6379
+    password:
+    database: 0
+    timeout: 5000ms
+    lettuce:
+      pool:
+        max-active: 20
+        max-idle: 10
+        min-idle: 5
+qrcode:
+  # 二维码有效期（秒）
+  expire:
+    seconds: 300
+  width: 100
+  height: 100

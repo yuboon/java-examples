@@ -1,0 +1,307 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f0f2f5;
+    color: #333;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+.mobile-container {
+    width: 360px;
+    max-width: 100%;
+    background-color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.mobile-header {
+    background-color: #1890ff;
+    color: white;
+    padding: 15px;
+    text-align: center;
+}
+
+.mobile-header h2 {
+    font-size: 18px;
+    font-weight: 500;
+}
+
+.mobile-body {
+    padding: 20px;
+    min-height: 400px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.scan-area {
+    text-align: center;
+}
+
+.scan-icon {
+    width: 120px;
+    height: 120px;
+    margin: 0 auto 20px;
+    background-color: #f0f0f0;
+    border-radius: 10px;
+    position: relative;
+}
+
+.scan-icon:before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 60px;
+    height: 60px;
+    background-color: #1890ff;
+    border-radius: 50%;
+    opacity: 0.2;
+}
+
+.scan-icon:after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px;
+    height: 40px;
+    background-color: #1890ff;
+    border-radius: 50%;
+}
+
+.scan-area p {
+    margin-bottom: 20px;
+    color: #666;
+}
+
+.scan-input {
+    margin-top: 30px;
+    text-align: center;
+}
+
+.scan-input p {
+    font-size: 14px;
+    margin-bottom: 10px;
+    color: #999;
+}
+
+.scan-input input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #d9d9d9;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+.scan-input button {
+    width: 100%;
+    padding: 10px;
+    background-color: #1890ff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.scan-result h3 {
+    text-align: center;
+    margin-bottom: 10px;
+    color: #1890ff;
+}
+
+.scan-result p {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #666;
+    word-break: break-all;
+}
+
+.user-select {
+    margin: 20px 0;
+}
+
+.user-select p {
+    text-align: center;
+    margin-bottom: 15px;
+    color: #333;
+}
+
+.user-list {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+}
+
+.user-item {
+    text-align: center;
+    cursor: pointer;
+    padding: 10px;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
+.user-item:hover {
+    background-color: #f0f0f0;
+}
+
+.user-avatar {
+    width: 60px;
+    height: 60px;
+    margin: 0 auto 10px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 2px solid #e0e0e0;
+}
+
+.user-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.user-name {
+    font-size: 14px;
+    color: #333;
+}
+
+.scan-actions {
+    margin-top: 30px;
+    text-align: center;
+}
+
+.cancel-btn {
+    padding: 8px 20px;
+    background-color: #f0f0f0;
+    border: none;
+    border-radius: 4px;
+    color: #333;
+    cursor: pointer;
+}
+
+.login-confirm {
+    text-align: center;
+}
+
+.login-user {
+    display: flex;
+    align-items: center;
+    padding: 15px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.login-user .user-avatar {
+    width: 50px;
+    height: 50px;
+    margin: 0 15px 0 0;
+}
+
+.login-user .user-info {
+    text-align: left;
+}
+
+.login-user .user-info h3 {
+    font-size: 16px;
+    margin-bottom: 5px;
+}
+
+.login-user .user-info p {
+    font-size: 13px;
+    color: #666;
+}
+
+.confirm-tip {
+    margin: 20px 0;
+}
+
+.confirm-tip p {
+    font-size: 16px;
+    color: #333;
+}
+
+.confirm-actions {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 30px;
+}
+
+.confirm-btn {
+    flex: 1;
+    margin-left: 10px;
+    padding: 10px;
+    background-color: #1890ff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.login-success {
+    text-align: center;
+}
+
+.success-icon {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 20px;
+    background-color: #52c41a;
+    border-radius: 50%;
+    position: relative;
+}
+
+.success-icon:before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 40px;
+    height: 20px;
+    border: 4px solid white;
+    border-top: none;
+    border-right: none;
+    transform: translate(-50%, -60%) rotate(-45deg);
+}
+
+.login-success h3 {
+    font-size: 20px;
+    color: #52c41a;
+    margin-bottom: 10px;
+}
+
+.login-success p {
+    color: #666;
+    margin-bottom: 30px;
+}
+
+.reset-btn {
+    padding: 8px 20px;
+    background-color: #1890ff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.mobile-footer {
+    padding: 15px;
+    text-align: center;
+    border-top: 1px solid #f0f0f0;
+}
+
+.mobile-footer p {
+    font-size: 13px;
+    color: #999;
+}

@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>移动端扫码登录</title>
+    <link rel="stylesheet" href="css/mobile.css">
+</head>
+<body>
+<div class="mobile-container">
+    <div class="mobile-header">
+        <h2>移动端扫码登录</h2>
+    </div>
+
+    <!-- 扫码前 -->
+    <div id="scan-area" class="mobile-body">
+        <div class="scan-area">
+            <div class="scan-icon"></div>
+            <p>请使用摄像头扫描二维码</p>
+            <div class="scan-input">
+                <p>或直接输入二维码ID：</p>
+                <input type="text" id="qrcode-input" placeholder="请输入二维码ID">
+                <button id="scan-btn">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 扫码后选择用户 -->
+    <div id="user-select-area" class="mobile-body" style="display: none;">
+        <div class="scan-result">
+            <h3>已扫描到二维码</h3>
+            <p id="scanned-qrcode-id"></p>
+
+            <div class="user-select">
+                <p>选择一个账号登录：</p>
+                <div id="user-list" class="user-list">
+                    <!-- 用户列表将通过JS动态填充 -->
+                </div>
+            </div>
+
+            <div class="scan-actions">
+                <button id="cancel-scan-btn" class="cancel-btn">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 确认登录 -->
+    <div id="login-confirm-area" class="mobile-body" style="display: none;">
+        <div class="login-confirm">
+            <div class="login-user">
+                <div class="user-avatar">
+                    <img id="selected-user-avatar" src="" alt="头像">
+                </div>
+                <div class="user-info">
+                    <h3 id="selected-user-name"></h3>
+                    <p id="selected-user-email"></p>
+                </div>
+            </div>
+
+            <div class="confirm-tip">
+                <p>确认在网页端登录该账号？</p>
+            </div>
+
+            <div class="confirm-actions">
+                <button id="cancel-confirm-btn" class="cancel-btn">取消</button>
+                <button id="confirm-login-btn" class="confirm-btn">确认登录</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 登录成功 -->
+    <div id="login-success-area" class="mobile-body" style="display: none;">
+        <div class="login-success">
+            <div class="success-icon"></div>
+            <h3>登录成功</h3>
+            <p>您已成功在网页端登录账号</p>
+            <button id="reset-btn" class="reset-btn">返回</button>
+        </div>
+    </div>
+
+    <div class="mobile-footer">
+        <p>这是一个移动端App的模拟页面</p>
+    </div>
+</div>
+
+<script>
+    // DOM元素
+    const scanArea = document.getElementById('scan-area');
+    const userSelectArea = document.getElementById('user-select-area');
+    const loginConfirmArea = document.getElementById('login-confirm-area');
+    const loginSuccessArea = document.getElementById('login-success-area');
+
+    const qrcodeInput = document.getElementById('qrcode-input');
+    const scanBtn = document.getElementById('scan-btn');
+    const cancelScanBtn = document.getElementById('cancel-scan-btn');
+    const cancelConfirmBtn = document.getElementById('cancel-confirm-btn');
+    const confirmLoginBtn = document.getElementById('confirm-login-btn');
+    const resetBtn = document.getElementById('reset-btn');
+
+    const scannedQrcodeId = document.getElementById('scanned-qrcode-id');
+    const userList = document.getElementById('user-list');
+    const selectedUserAvatar = document.getElementById('selected-user-avatar');
+    const selectedUserName = document.getElementById('selected-user-name');
+    const selectedUserEmail = document.getElementById('selected-user-email');
+
+    // 全局变量
+    let currentQrCodeId = '';
+    let selectedUserId = '';
+    let availableUsers = {};
+
+    // 初始化
+    window.addEventListener('load', init);
+
+    // 按钮事件
+    scanBtn.addEventListener('click', () => scanQRCode(qrcodeInput.value));
+    cancelScanBtn.addEventListener('click', cancelScan);
+    cancelConfirmBtn.addEventListener('click', cancelConfirm);
+    confirmLoginBtn.addEventListener('click', confirmLogin);
+    resetBtn.addEventListener('click', resetAll);
+
+    // 初始化函数
+    function init() {
+        // 从URL获取二维码ID
+        const urlParams = new URLSearchParams(window.location.search);
+        const qrCodeId = urlParams.get('qrCodeId');
+
+        if (qrCodeId) {
+            scanQRCode(qrCodeId);
+        }
+
+        // 获取可用用户
+        fetchAvailableUsers();
+    }
+
+    // 获取可用用户
+    async function fetchAvailableUsers() {
+        try {
+            const response = await fetch('/api/auth/users');
+            if (!response.ok) {
+                throw new Error('Failed to fetch users');
+            }
+
+            availableUsers = await response.json();
+
+            // 清空用户列表
+            userList.innerHTML = '';
+
+            // 添加用户到列表
+            for (const userId in availableUsers) {
+                const user = availableUsers[userId];
+
+                const userItem = document.createElement('div');
+                userItem.className = 'user-item';
+                userItem.addEventListener('click', () => selectUser(userId));
+
+                const userAvatar = document.createElement('div');
+                userAvatar.className = 'user-avatar';
+
+                const img = document.createElement('img');
+                img.src = user.avatar;
+                img.alt = user.username;
+
+                const userName = document.createElement('div');
+                userName.className = 'user-name';
+                userName.textContent = user.username;
+
+                userAvatar.appendChild(img);
+                userItem.appendChild(userAvatar);
+                userItem.appendChild(userName);
+                userList.appendChild(userItem);
+            }
+
+        } catch (error) {
+            console.error('Error fetching users:', error);
+            alert('获取用户列表失败，请刷新页面重试');
+        }
+    }
+
+    // 扫描二维码
+    async function scanQRCode(qrCodeId) {
+        if (!qrCodeId) {
+            alert('请输入二维码ID');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/qrcode/scan', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ qrCodeId: qrCodeId })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to scan QR code');
+            }
+
+            // 保存当前二维码ID
+            currentQrCodeId = qrCodeId;
+
+            // 显示扫描结果
+            scannedQrcodeId.textContent = `ID: ${qrCodeId}`;
+
+            // 切换界面
+            scanArea.style.display = 'none';
+            userSelectArea.style.display = 'block';
+            loginConfirmArea.style.display = 'none';
+            loginSuccessArea.style.display = 'none';
+
+        } catch (error) {
+            console.error('Error scanning QR code:', error);
+            alert('二维码无效或已过期');
+        }
+    }
+
+    // 选择用户
+    function selectUser(userId) {
+        selectedUserId = userId;
+        const user = availableUsers[userId];
+
+        // 更新选中用户信息
+        selectedUserAvatar.src = user.avatar;
+        selectedUserName.textContent = user.username;
+        selectedUserEmail.textContent = user.email;
+
+        // 切换界面
+        scanArea.style.display = 'none';
+        userSelectArea.style.display = 'none';
+        loginConfirmArea.style.display = 'block';
+        loginSuccessArea.style.display = 'none';
+    }
+
+    // 确认登录
+    async function confirmLogin() {
+        try {
+            const response = await fetch('/api/qrcode/confirm', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    qrCodeId: currentQrCodeId,
+                    userId: selectedUserId
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to confirm login');
+            }
+
+            // 切换界面
+            scanArea.style.display = 'none';
+            userSelectArea.style.display = 'none';
+            loginConfirmArea.style.display = 'none';
+            loginSuccessArea.style.display = 'block';
+
+        } catch (error) {
+            console.error('Error confirming login:', error);
+            alert('确认登录失败，请重试');
+        }
+    }
+
+    // 取消扫描
+    async function cancelScan() {
+        try {
+            await fetch('/api/qrcode/cancel', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    qrCodeId: currentQrCodeId
+                })
+            });
+        } catch (error) {
+            console.error('Error cancelling scan:', error);
+        }
+
+        resetAll();
+    }
+
+    // 取消确认
+    function cancelConfirm() {
+        selectedUserId = '';
+
+        // 切换界面
+        scanArea.style.display = 'none';
+        userSelectArea.style.display = 'block';
+        loginConfirmArea.style.display = 'none';
+        loginSuccessArea.style.display = 'none';
+    }
+
+    // 重置所有状态
+    function resetAll() {
+        currentQrCodeId = '';
+        selectedUserId = '';
+        qrcodeInput.value = '';
+
+        // 切换界面
+        scanArea.style.display = 'block';
+        userSelectArea.style.display = 'none';
+        loginConfirmArea.style.display = 'none';
+        loginSuccessArea.style.display = 'none';
+    }
+</script>
+</body>
+</html>
