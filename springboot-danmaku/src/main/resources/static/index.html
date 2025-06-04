@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>弹幕视频播放器</title>
+    <style>
+        #video-container {
+            position: relative;
+            width: 800px;
+            height: 450px;
+            margin: 0 auto;
+            background-color: #000;
+            overflow: hidden;
+        }
+        
+        #video-player {
+            width: 100%;
+            height: 100%;
+        }
+        
+        #danmaku-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* 允许点击穿透到视频 */
+        }
+        
+        .danmaku {
+            position: absolute;
+            white-space: nowrap;
+            font-family: "Microsoft YaHei", sans-serif;
+            font-weight: bold;
+            text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+            animation-name: danmaku-move;
+            animation-timing-function: linear;
+            animation-fill-mode: forwards;
+        }
+        
+        @keyframes danmaku-move {
+            from {
+                transform: translateX(100%);
+            }
+            to {
+                transform: translateX(-100%);
+            }
+        }
+        
+        #danmaku-form {
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        #danmaku-input {
+            width: 60%;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+        
+        #color-picker {
+            margin: 0 10px;
+        }
+        
+        #send-btn {
+            padding: 8px 16px;
+            background-color: #1890ff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        #send-btn:hover {
+            background-color: #40a9ff;
+        }
+    </style>
+</head>
+<body>
+<div id="video-container">
+    <video id="video-player" controls>
+        <source src="code.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+    <div id="danmaku-container"></div>
+</div>
+
+<div id="danmaku-form">
+    <input type="text" id="danmaku-input" placeholder="发送弹幕...">
+    <input type="color" id="color-picker" value="#ffffff">
+    <select id="font-size">
+        <option value="18">小</option>
+        <option value="24" selected>中</option>
+        <option value="30">大</option>
+    </select>
+    <button id="send-btn">发送</button>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1.5.0/dist/sockjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+<script src="danmaku.js"></script>
+</body>
+</html>
