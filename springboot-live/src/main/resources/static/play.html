@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>直播播放器</title>
+    <link href="https://vjs.zencdn.net/7.20.3/video-js.css" rel="stylesheet" />
+    <script src="https://vjs.zencdn.net/7.20.3/video.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1.5.0/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/videojs-contrib-hls@5.15.0/dist/videojs-contrib-hls.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flv.js@1.6.2/dist/flv.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/videojs-flvjs@0.2.0/dist/videojs-flvjs.min.js"></script>
+    <style>
+        .video-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .video-js {
+            width: 100%;
+            height: 450px;
+        }
+        .room-info {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        .room-title {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .streamer-info {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .streamer-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        .streamer-name {
+            font-weight: bold;
+        }
+        .room-stats {
+            display: flex;
+            gap: 20px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+<div class="video-container">
+    <video id="live-player" class="video-js vjs-default-skin vjs-big-play-centered" controls preload="auto">
+        <p class="vjs-no-js">
+            To view this video please enable JavaScript, and consider upgrading to a web browser that
+            <a href="https://videojs.com/html5-video-support/" target="_blank">supports HTML5 video</a>
+        </p>
+    </video>
+
+    <div class="room-info">
+        <div class="room-title" id="room-title">直播间标题</div>
+        <div class="streamer-info">
+            <img class="streamer-avatar" id="streamer-avatar" src="https://api.dicebear.com/7.x/avataaars/svg?seed=user1" alt="主播头像">
+            <span class="streamer-name" id="streamer-name">主播昵称</span>
+        </div>
+        <div class="room-stats">
+            <div><i class="icon-eye"></i> <span id="view-count">0</span> 观看</div>
+            <div><i class="icon-heart"></i> <span id="like-count">0</span> 点赞</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 获取URL参数
+    function getQueryParam(name) {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get(name);
+    }
+
+    // 初始化播放器
+    function initPlayer() {
+        const roomId = getQueryParam('roomId');
+        if (!roomId) {
+            alert('请指定直播间ID');
+            return;
+        }
+
+        // 获取直播间信息
+        fetch(`/api/live/room/${roomId}`)
+            .then(response => response.json())
+            .then(room => {
+                // 更新页面信息
+                document.getElementById('room-title').textContent = room.title;
+                document.getElementById('streamer-name').textContent = `主播ID: ${room.userId}`;
+                document.getElementById('view-count').textContent = room.viewCount;
+                document.getElementById('like-count').textContent = room.likeCount;
+
+                // 判断直播状态
+                if (room.status !== 1) {
+                    alert('直播未开始或已结束');
+                    return;
+                }
+
+                // 创建播放器
+                const player = videojs('live-player', {
+                    autoplay: true,
+                    liveui: true,
+                    controls: true,
+                    preload: 'auto',
+                    responsive: true,
+                    fluid: true,
+                    sources: [/*{
+                        src: room.flvUrl,
+                        type: 'video/x-flv'
+                    },*/ {
+                        src: room.hlsUrl,
+                        type: 'application/x-mpegURL'
+                    }]
+                });
+
+                // 优先使用FLV.js
+                /*if (flvjs.isSupported()) {
+                    player.flvjs({
+                        mediaDataSource: {
+                            type: 'flv',
+                            url: room.flvUrl
+                        }
+                    });
+                }*/
+
+                // 播放器错误处理
+                player.on('error', function() {
+                    console.error('播放器错误，尝试切换播放源');
+                    // 尝试切换到HLS
+                    player.src({
+                        src: room.hlsUrl,
+                        type: 'application/x-mpegURL'
+                    });
+                });
+
+                // 统计观看人数
+                fetch(`/api/live/room/${roomId}/view`, {
+                    method: 'POST'
+                });
+
+                // 连接WebSocket接收直播状态更新
+                connectWebSocket(roomId);
+            })
+            .catch(error => {
+                console.error('获取直播间信息失败:', error);
+                alert('获取直播间信息失败');
+            });
+    }
+
+    // 连接WebSocket
+    function connectWebSocket(roomId) {
+        const socket = new SockJS('/ws');
+        const stompClient = Stomp.over(socket);
+
+        stompClient.connect({}, function(frame) {
+            console.log('Connected to WebSocket');
+
+            // 订阅直播间状态变更
+            stompClient.subscribe(`/topic/room/${roomId}/status`, function(message) {
+                const data = JSON.parse(message.body);
+                if (data.status !== 1) {
+                    alert('直播已结束');
+                    location.reload();
+                }
+            });
+
+            // 订阅点赞更新
+            stompClient.subscribe(`/topic/room/${roomId}/like`, function(message) {
+                const data = JSON.parse(message.body);
+                document.getElementById('like-count').textContent = data.likeCount;
+            });
+        });
+
+    }
+
+    // 页面加载完成后初始化
+    document.addEventListener('DOMContentLoaded', initPlayer);
+</script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: live-streaming-service
+
+  # ?????
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/live_streaming?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    username: root
+    password: root
+
+  # Redis??
+  redis:
+    host: localhost
+    port: 6379
+    database: 0
+
+
+# MyBatis Plus??
+mybatis-plus:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.example.livestream.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+# ????????
+live:
+  srs:
+    server-url: rtmp://192.168.195.100:1935/live
+    api-url: http://192.168.195.100:1985/api
+    http-flv-url: http://192.168.195.100:8080/live
+    hls-url: http://192.168.195.100:8080/live/hls
+  record:
+    save-path: /data/record
+  push:
+    key-check-enabled: true
+    auth-expire: 86400  # 24??????
+    auth-key: your_secret_key
+
+# MinIO??
+minio:
+  endpoint: http://localhost:9000
+  access-key: minioadmin
+  secret-key: minioadmin
+  bucket: live-recordings
