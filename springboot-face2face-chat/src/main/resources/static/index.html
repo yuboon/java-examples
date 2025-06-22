@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>面对面建群</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+    <style>
+        .group-card {
+            transition: all 0.3s ease;
+        }
+        .group-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="#">面对面建群</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#">首页</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" @click="updateLocation">刷新位置</a>
+                    </li>
+                </ul>
+                <div class="d-flex">
+                        <span class="navbar-text me-3">
+                            欢迎, {{ user.nickname || user.username }}
+                        </span>
+                    <button class="btn btn-outline-light" @click="logout">退出</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">附近的群组</h5>
+                        <button class="btn btn-primary" @click="openCreateGroupModal">
+                            <i class="bi bi-plus-circle"></i> 创建群组
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div v-if="loading" class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-3">加载中...</p>
+                        </div>
+                        <div v-else-if="nearbyGroups.length === 0" class="text-center py-5">
+                            <i class="bi bi-search" style="font-size: 3rem;"></i>
+                            <p class="mt-3">没有找到附近的群组</p>
+                            <button class="btn btn-outline-primary" @click="getNearbyGroups">
+                                <i class="bi bi-arrow-clockwise"></i> 刷新
+                            </button>
+                        </div>
+                        <div v-else class="row">
+                            <div v-for="group in nearbyGroups" :key="group.id" class="col-md-6 mb-3">
+                                <div class="card group-card h-100">
+                                    <div class="card-body">
+                                        <h5 class="card-title">{{ group.name }}</h5>
+                                        <p class="card-text text-muted small">{{ group.description }}</p>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                    <span class="badge bg-info">
+                                                        <i class="bi bi-geo-alt"></i> {{ formatDistance(group.distance) }}
+                                                    </span>
+                                                <span class="badge bg-secondary ms-1">
+                                                        <i class="bi bi-people"></i> {{ group.memberCount }}人
+                                                    </span>
+                                            </div>
+                                            <button class="btn btn-sm btn-primary" @click="joinGroup(group)">
+                                                加入群组
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">我的群组</h5>
+                    </div>
+                    <div class="card-body">
+                        <div v-if="myGroups.length === 0" class="text-center py-4">
+                            <i class="bi bi-people" style="font-size: 2rem;"></i>
+                            <p class="mt-2">您还没有加入任何群组</p>
+                        </div>
+                        <div v-else>
+                            <div v-for="group in myGroups" :key="group.id" class="mb-3 border-bottom pb-2">
+                                <h6>{{ group.name }}</h6>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <small class="text-muted">
+                                        <i class="bi bi-clock"></i> {{ formatTime(group.createTime) }}
+                                    </small>
+                                    <a :href="'/group.html?id=' + group.id" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-info-circle"></i> 详情
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">通过邀请码加入</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="input-group">
+                            <input v-model="invitationCode" type="text" class="form-control" placeholder="输入邀请码">
+                            <button class="btn btn-primary" @click="joinByCode">加入</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 创建群组弹窗 -->
+    <div class="modal fade" id="createGroupModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">创建面对面群组</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form @submit.prevent="createGroup">
+                        <div class="mb-3">
+                            <label class="form-label">群组名称</label>
+                            <input v-model="newGroup.name" type="text" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">群组描述</label>
+                            <textarea v-model="newGroup.description" class="form-control" rows="3"></textarea>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">创建群组</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vue@3.2.37/dist/vue.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script>
+    const { createApp, ref, onMounted } = Vue;
+
+    createApp({
+        setup() {
+            const user = ref({});
+            const nearbyGroups = ref([]);
+            const myGroups = ref([]);
+            const invitationCode = ref('');
+            const newGroup = ref({
+                name: '',
+                description: '',
+                latitude: 0,
+                longitude: 0
+            });
+            const loading = ref(false);
+            let createGroupModal;
+
+            // 检查登录状态
+            const checkAuth = () => {
+                const token = localStorage.getItem('token');
+                const userStr = localStorage.getItem('user');
+
+                if (!token || !userStr) {
+                    window.location.href = '/login.html';
+                    return;
+                }
+
+                user.value = JSON.parse(userStr);
+                axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+            };
+
+            // 更新位置
+            const updateLocation = () => {
+                loading.value = true;
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(position => {
+                        const latitude = position.coords.latitude;
+                        const longitude = position.coords.longitude;
+
+                        newGroup.value.latitude = latitude;
+                        newGroup.value.longitude = longitude;
+
+                        axios.post('/api/location/update', {
+                            latitude: latitude,
+                            longitude: longitude
+                        }).then(() => {
+                            getNearbyGroups();
+                        }).catch(error => {
+                            console.error('Update location failed:', error);
+                            loading.value = false;
+                            alert('更新位置失败');
+                        });
+                    }, error => {
+                        console.error('Geolocation error:', error);
+                        loading.value = false;
+                        alert('无法获取您的位置，请确保已授权位置权限');
+                    });
+                } else {
+                    loading.value = false;
+                    alert('您的浏览器不支持地理位置功能');
+                }
+            };
+
+            // 获取附近群组
+            const getNearbyGroups = () => {
+                loading.value = true;
+                if (newGroup.value.latitude && newGroup.value.longitude) {
+                    axios.get('/api/groups/nearby', {
+                        params: {
+                            latitude: newGroup.value.latitude,
+                            longitude: newGroup.value.longitude,
+                            radius: 500 // 500米范围内
+                        }
+                    }).then(response => {
+                        if (response.data.code === 200) {
+                            nearbyGroups.value = response.data.data;
+                        } else {
+                            alert(response.data.message || '获取附近群组失败');
+                        }
+                        loading.value = false;
+                    }).catch(error => {
+                        console.error('Get nearby groups failed:', error);
+                        loading.value = false;
+                        alert('获取附近群组失败');
+                    });
+                } else {
+                    loading.value = false;
+                }
+            };
+
+            // 获取我的群组
+            const getMyGroups = () => {
+                axios.get('/api/groups/my-groups')
+                    .then(response => {
+                        if (response.data.code === 200) {
+                            myGroups.value = response.data.data;
+                        }
+                    }).catch(error => {
+                        console.error('Get my groups failed:', error);
+                    });
+            };
+
+            // 创建群组
+            const createGroup = () => {
+                if (!newGroup.value.latitude || !newGroup.value.longitude) {
+                    alert('请先更新您的位置');
+                    return;
+                }
+
+                axios.post('/api/groups/create', newGroup.value)
+                    .then(response => {
+                        if (response.data.code === 200) {
+                            createGroupModal.hide();
+                            myGroups.value.push(response.data.data);
+                            alert('群组创建成功，邀请码: ' + response.data.data.invitationCode);
+
+                            // 重置表单
+                            newGroup.value.name = '';
+                            newGroup.value.description = '';
+                        } else {
+                            alert(response.data.message || '创建群组失败');
+                        }
+                    }).catch(error => {
+                        console.error('Create group failed:', error);
+                        alert('创建群组失败');
+                    });
+            };
+
+            // 加入群组
+            const joinGroup = (group) => {
+                axios.post(`/api/groups/${group.id}/join`)
+                    .then(response => {
+                        if (response.data.code === 200) {
+                            alert('成功加入群组');
+                            if (!myGroups.value.some(g => g.id === group.id)) {
+                                myGroups.value.push(group);
+                            }
+                        } else {
+                            alert(response.data.message || '加入群组失败');
+                        }
+                    }).catch(error => {
+                        console.error('Join group failed:', error);
+                        alert('加入群组失败');
+                    });
+            };
+
+            // 通过邀请码加入
+            const joinByCode = () => {
+                if (!invitationCode.value) {
+                    alert('请输入邀请码');
+                    return;
+                }
+
+                axios.post('/api/groups/join-by-code', {
+                    invitationCode: invitationCode.value
+                }).then(response => {
+                    if (response.data.code === 200) {
+                        alert('成功加入群组');
+                        getMyGroups();
+                        invitationCode.value = '';
+                    } else {
+                        alert(response.data.message || '邀请码无效');
+                    }
+                }).catch(error => {
+                    console.error('Join by code failed:', error);
+                    alert('邀请码无效');
+                });
+            };
+
+            // 打开创建群组弹窗
+            const openCreateGroupModal = () => {
+                createGroupModal.show();
+            };
+
+            // 格式化时间
+            const formatTime = (timeStr) => {
+                if (!timeStr) return '';
+                const date = new Date(timeStr);
+                return date.toLocaleString();
+            };
+
+            // 格式化距离
+            const formatDistance = (distance) => {
+                if (distance == null) return '未知';
+                if (distance < 1000) {
+                    return Math.round(distance) + '米';
+                } else {
+                    return (distance / 1000).toFixed(1) + '公里';
+                }
+            };
+
+            // 退出登录
+            const logout = () => {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = '/login.html';
+            };
+
+            onMounted(() => {
+                checkAuth();
+                createGroupModal = new bootstrap.Modal(document.getElementById('createGroupModal'));
+                updateLocation();
+                getMyGroups();
+            });
+
+            return {
+                user,
+                nearbyGroups,
+                myGroups,
+                invitationCode,
+                newGroup,
+                loading,
+                updateLocation,
+                getNearbyGroups,
+                getMyGroups,
+                createGroup,
+                joinGroup,
+                joinByCode,
+                openCreateGroupModal,
+                formatTime,
+                formatDistance,
+                logout
+            };
+        }
+    }).mount('#app');
+</script>
+</body>
+</html>
