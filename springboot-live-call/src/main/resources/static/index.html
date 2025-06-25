@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>直播连麦系统 - 大厅</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header>
+    <div class="logo">直播连麦系统</div>
+    <div class="user-info">
+        <span id="user-nickname"></span>
+        <img id="user-avatar" src="" alt="头像">
+        <button id="logout-btn">退出</button>
+    </div>
+</header>
+<main>
+    <div class="create-room-box" id="broadcaster-controls">
+        <h2>创建直播间</h2>
+        <div class="form-group">
+            <label for="room-title">直播间标题</label>
+            <input type="text" id="room-title" placeholder="请输入直播间标题">
+        </div>
+        <button id="create-room-btn">创建直播间</button>
+    </div>
+    <div class="room-list">
+        <h2>直播间列表</h2>
+        <div id="rooms-container"></div>
+    </div>
+</main>
+<script src="js/auth.js"></script>
+<script src="js/index.js"></script>
+</body>
+</html>

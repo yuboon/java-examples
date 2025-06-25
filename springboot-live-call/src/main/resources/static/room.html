@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>直播间</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/room.css">
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+</head>
+<body>
+<div class="room-container">
+    <header class="room-header">
+        <div class="room-info">
+            <h1 id="room-title">加载中...</h1>
+            <div class="broadcaster-info">
+                <span>主播：</span>
+                <span id="broadcaster-name"></span>
+            </div>
+        </div>
+        <div class="room-controls">
+            <button id="back-to-lobby">返回大厅</button>
+        </div>
+    </header>
+    <main class="room-main">
+        <div class="video-section">
+            <div class="main-video">
+                <video id="broadcaster-video" autoplay playsinline></video>
+                <div class="video-label" id="broadcaster-label"></div>
+            </div>
+            <div class="audience-videos" id="audience-videos-container"></div>
+        </div>
+        <div class="interaction-section">
+            <div class="chat-box">
+                <div class="chat-messages" id="chat-messages"></div>
+                <div class="chat-input">
+                    <input type="text" id="chat-input" placeholder="发送消息...">
+                    <button id="send-message-btn">发送</button>
+                </div>
+            </div>
+            <div class="control-panel">
+                <div id="audience-controls">
+                    <button id="request-mic-btn">申请连麦</button>
+                    <div id="mic-status"></div>
+                </div>
+                <div id="broadcaster-controls" style="display: none;">
+                    <div class="mic-requests">
+                        <h3>连麦申请</h3>
+                        <ul id="mic-requests-list"></ul>
+                    </div>
+                    <div class="active-mics">
+                        <h3>当前连麦</h3>
+                        <ul id="active-mics-list"></ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+<script src="js/auth.js"></script>
+<script src="js/webrtc.js"></script>
+<script src="js/room.js"></script>
+</body>
+</html>

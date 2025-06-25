@@ -1,0 +1,10 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: livestream-system
+
+jwt:
+  secret: livestreamSecretKey123456789012345678901234567890
+  expiration: 86400000

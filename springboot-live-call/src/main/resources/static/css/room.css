@@ -1,0 +1,247 @@
+/* room.css */
+
+.room-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+.room-header {
+    background-color: #1890ff;
+    color: white;
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.room-info h1 {
+    margin: 0;
+    font-size: 24px;
+}
+
+.broadcaster-info {
+    font-size: 14px;
+    margin-top: 5px;
+}
+
+.room-controls button {
+    width: auto;
+    padding: 8px 15px;
+    background-color: white;
+    color: #1890ff;
+}
+
+.room-main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+.video-section {
+    flex: 2;
+    display: flex;
+    flex-direction: column;
+    background-color: #000;
+    position: relative;
+}
+
+.main-video {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+
+.main-video video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.video-label {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    background-color: rgba(0, 0, 0, 0.6);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.audience-videos {
+    height: 150px;
+    display: flex;
+    padding: 10px;
+    gap: 10px;
+    background-color: #1a1a1a;
+    overflow-x: auto;
+}
+
+.audience-video-container {
+    width: 200px;
+    height: 100%;
+    position: relative;
+    background-color: #333;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.audience-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.end-mic-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: auto;
+    padding: 3px 8px;
+    font-size: 12px;
+    background-color: #ff4d4f;
+}
+
+.interaction-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background-color: white;
+    border-left: 1px solid #eee;
+}
+
+.chat-box {
+    flex: 2;
+    display: flex;
+    flex-direction: column;
+    border-bottom: 1px solid #eee;
+}
+
+.chat-messages {
+    flex: 1;
+    padding: 15px;
+    overflow-y: auto;
+}
+
+.chat-message {
+    margin-bottom: 10px;
+    padding: 8px 10px;
+    background-color: #f9f9f9;
+    border-radius: 4px;
+    word-break: break-word;
+}
+
+.message-sender {
+    font-weight: bold;
+    color: #1890ff;
+    margin-right: 5px;
+}
+
+.message-time {
+    font-size: 12px;
+    color: #999;
+    margin-left: 5px;
+}
+
+.system-message {
+    background-color: #f0f0f0;
+    color: #888;
+    text-align: center;
+    font-style: italic;
+}
+
+.chat-input {
+    display: flex;
+    padding: 10px;
+    border-top: 1px solid #eee;
+}
+
+.chat-input input {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-right: 10px;
+}
+
+.chat-input button {
+    width: auto;
+}
+
+.control-panel {
+    flex: 1;
+    padding: 15px;
+    overflow-y: auto;
+}
+
+#audience-controls {
+    text-align: center;
+}
+
+#mic-status {
+    margin-top: 10px;
+    font-size: 14px;
+    color: #666;
+}
+
+.mic-requests, .active-mics {
+    margin-bottom: 20px;
+}
+
+.mic-requests h3, .active-mics h3 {
+    font-size: 16px;
+    margin-bottom: 10px;
+    color: #1890ff;
+}
+
+.mic-request-item, .active-mic-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background-color: #f9f9f9;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+.request-actions {
+    display: flex;
+    gap: 5px;
+}
+
+.accept-btn, .reject-btn {
+    width: auto;
+    padding: 5px 10px;
+    font-size: 12px;
+}
+
+.accept-btn {
+    background-color: #52c41a;
+}
+
+.reject-btn {
+    background-color: #ff4d4f;
+}
+
+/* 响应式布局 */
+@media (max-width: 768px) {
+    .room-main {
+        flex-direction: column;
+    }
+
+    .audience-videos {
+        height: 100px;
+    }
+
+    .audience-video-container {
+        width: 120px;
+    }
+
+    .interaction-section {
+        border-left: none;
+        border-top: 1px solid #eee;
+    }
+}
