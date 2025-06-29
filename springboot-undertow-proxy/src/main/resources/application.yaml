@@ -1,0 +1,13 @@
+server:
+  undertow:
+    threads:
+      io: 8                      # IO线程数，建议设置为CPU核心数
+      worker: 64                 # 工作线程数，IO线程数的8倍
+    buffer-size: 16384           # 缓冲区大小
+    direct-buffers: true         # 使用直接缓冲区
+    max-http-post-size: 10485760 # 最大POST大小
+    max-parameters: 2000         # 最大参数数量
+    max-headers: 200             # 最大请求头数量
+    max-cookies: 200             # 最大Cookie数量
+user:
+  backends: "http://127.0.0.1:8081/user,http://127.0.0.2:8082/user"

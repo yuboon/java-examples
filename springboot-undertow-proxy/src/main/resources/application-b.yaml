@@ -1,0 +1,5 @@
+server:
+  port: 8082
+
+user:
+  enabled: true
