@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/htmx.org@1.9.6/dist/htmx.min.js"></script>
+    <script src="https://unpkg.com/htmx.org/dist/ext/json-enc.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/olado/doT@master/doT.min.js"></script>
+
+    <!-- Tailwind 配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#10B981',
+                        danger: '#EF4444',
+                        dark: '#1F2937',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .task-item {
+                @apply flex items-center justify-between p-4 mb-3 rounded-lg transition-all duration-300;
+            }
+            .task-item-complete {
+                @apply bg-gray-100 text-gray-500 line-through;
+            }
+            .btn {
+                @apply px-4 py-2 rounded-lg font-medium transition-all duration-200;
+            }
+            .btn-primary {
+                @apply bg-primary text-white hover:bg-primary/90;
+            }
+            .btn-danger {
+                @apply bg-danger text-white hover:bg-danger/90;
+            }
+            .btn-secondary {
+                @apply bg-secondary text-white hover:bg-secondary/90;
+            }
+            .animate-fade-in {
+                @apply opacity-0 transform translate-y-2;
+                animation: fadeIn 0.3s ease-out forwards;
+            }
+            .animate-fade-out {
+                @apply opacity-100 transform translate-y-0;
+                animation: fadeOut 0.3s ease-in forwards;
+            }
+            @keyframes fadeIn {
+                to { opacity: 1; transform: translateY(0); }
+            }
+            @keyframes fadeOut {
+                to { opacity: 0; transform: translateY(-10px); }
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans text-dark">
+<div class="max-w-3xl mx-auto px-4 py-8">
+    <!-- 页面标题 -->
+    <header class="text-center mb-8">
+        <h1 class="text-[clamp(2rem,5vw,3rem)] font-bold text-primary mb-2">Task Manager</h1>
+        <p class="text-gray-600">Simple task management with Spring Boot, HTMX and doT.js</p>
+    </header>
+
+    <!-- 任务管理卡片 -->
+    <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+        <!-- 任务表单 -->
+        <form
+                id="task-form"
+                hx-post="/api/tasks"
+                hx-target="#task-list"
+                hx-ext="json-enc"
+                hx-swap="none"
+                hx-on="htmx:afterRequest:fetchTasks()"
+                class="flex space-x-3"
+        >
+            <input
+                    type="text"
+                    name="title"
+                    placeholder="Add a new task..."
+                    required
+                    class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50"
+            >
+            <button type="submit" class="btn btn-primary">
+                <i class="fa fa-plus mr-2"></i> Add
+            </button>
+        </form>
+
+        <!-- 任务列表容器 -->
+        <div id="task-list" class="space-y-3 mt-4">
+            <div class="text-center text-gray-500 py-8">
+                <i class="fa fa-spinner fa-spin text-primary text-2xl mb-2"></i>
+                <p>Loading tasks...</p>
+            </div>
+        </div>
+    </div>
+
+    <footer class="text-center text-gray-500 text-sm">
+        <p>Spring Boot + HTMX + doT.js Task Manager</p>
+    </footer>
+</div>
+
+<!-- doT.js 任务列表模板 -->
+<script type="text/template" id="task-list-template">
+    {{~ it.tasks:task:index }}
+    <div class="task-item {{? task.completed}}task-item-complete{{?}} animate-fade-in" style="animation-delay: {{= index * 50}}ms">
+        <div class="flex items-center space-x-3">
+            <button
+                    class="task-toggle-btn w-6 h-6 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all
+                    {{= task.completed ? 'bg-secondary border-secondary' : 'border-gray-300 hover:border-secondary hover:bg-secondary/10'}}
+                    "
+                    hx-put="/api/tasks/{{= task.id}}/toggle"
+                    hx-target="closest .task-item"
+                    hx-swap="none"
+                    hx-on="htmx:afterRequest:fetchTasks()"
+            >
+                <i class="fa fa-check text-white text-xs"></i>
+            </button>
+            <span class="task-title font-medium">{{= task.title}}</span>
+        </div>
+        <button
+                class="delete-task-btn text-gray-400 hover:text-danger transition-colors"
+                hx-delete="/api/tasks/{{= task.id}}"
+                hx-target="closest .task-item"
+                hx-swap="delete"
+                hx-confirm="Are you sure you want to delete this task?"
+                hx-on="htmx:beforeRequest:this.closest('.task-item').classList.add('animate-fade-out')"
+        >
+            <i class="fa fa-trash-o text-lg"></i>
+        </button>
+    </div>
+    {{~}}
+    {{? it.tasks.length === 0 }}
+    <div class="text-center text-gray-500 py-8">
+        <i class="fa fa-check-circle text-secondary text-3xl mb-2"></i>
+        <p>No tasks yet. Add your first task!</p>
+    </div>
+    {{?}}
+</script>
+
+<script>
+    // 编译 doT.js 模板
+    const taskListTemplate = doT.template(document.getElementById('task-list-template').text);
+
+    // 页面加载后获取任务列表
+    document.addEventListener('DOMContentLoaded', fetchTasks);
+
+    // 获取任务列表
+    function fetchTasks() {
+        htmx.ajax('GET', '/api/tasks', {
+            handler: function(d,xhr) {
+                if (xhr.xhr.status === 200) {
+                    try {
+                        const tasks = JSON.parse(xhr.xhr.responseText);
+                        renderTasks(tasks);
+                    } catch (e) {
+                        showError('Failed to parse tasks');
+                    }
+                } else {
+                    showError('Failed to load tasks');
+                }
+            }
+        });
+    }
+
+    // 渲染任务列表
+    function renderTasks(tasks) {
+        const taskList = document.getElementById('task-list');
+        const html = taskListTemplate({ tasks });
+        taskList.innerHTML = html;
+        htmx.process(taskList);
+    }
+
+    // 显示错误信息
+    function showError(message) {
+        const taskList = document.getElementById('task-list');
+        taskList.innerHTML = `
+            <div class="text-center text-danger py-8">
+                <i class="fa fa-exclamation-circle text-danger text-2xl mb-2"></i>
+                <p>${message}</p>
+            </div>
+        `;
+    }
+
+    // 表单提交后清空输入框
+    document.getElementById('task-form').addEventListener('htmx:afterRequest', function() {
+        this.reset();
+    });
+</script>
+</body>
+</html>
