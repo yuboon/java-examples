@@ -1,0 +1,23 @@
+service:
+  direct-url: # 直连地址配置
+    user-service: http://localhost:8080/user  # 订单服务REST地址
+  config:
+    user-service: rest    # 用户服务用rest调用
+    order-service: rpc  # 订单服务用RPC调用
+
+# Dubbo 配置（若使用 Dubbo RPC）
+dubbo:
+  application:
+    name: unified-client-demo  # 当前应用名
+#    serialize-check-status: DISABLE
+    qos-enable: false
+  registry:
+    address: N/A
+  reference:
+    # 为指定服务配置直连地址（无需注册中心）
+    order-service:
+      interfaceName: com.example.unified.service.OrderService  # 服务接口名称
+      url: dubbo://192.168.17.1:20880  # 格式：dubbo://IP:端口
+  protocol:
+    name: dubbo    # RPC 协议名称
+    port: 20880    # 端口
