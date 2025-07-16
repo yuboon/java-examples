@@ -1,0 +1,6 @@
+CREATE TABLE user (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+    username VARCHAR(255) NOT NULL COMMENT '用户名',
+    phone VARCHAR(11) COMMENT '手机号',
+    id_card VARCHAR(18) COMMENT '身份证号'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='用户表';
