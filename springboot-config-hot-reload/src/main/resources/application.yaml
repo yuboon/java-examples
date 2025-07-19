@@ -1,0 +1,6 @@
+server:
+  port: 8080
+
+app:
+  timeout: 3000
+  maxRetries: 5
