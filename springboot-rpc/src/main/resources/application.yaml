@@ -1,0 +1,10 @@
+server:
+  port: 8080
+
+rpc:
+  server:
+    url: http://localhost:8080
+
+logging:
+  level:
+    com.example.rpc: DEBUG
