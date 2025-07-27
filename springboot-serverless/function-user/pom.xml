@@ -9,7 +9,7 @@
         <version>0.0.1-SNAPSHOT</version>
     </parent>
 
-    <artifactId>function-demo</artifactId>
+    <artifactId>function-user</artifactId>
 
     <properties>
         <maven.compiler.source>21</maven.compiler.source>

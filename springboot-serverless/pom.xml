@@ -14,7 +14,8 @@
     <packaging>pom</packaging>
     <modules>
         <module>serverless-core</module>
-        <module>function-demo</module>
+        <module>function-hello</module>
+        <module>function-user</module>
     </modules>
 
     <properties>

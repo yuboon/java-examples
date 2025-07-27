@@ -60,14 +60,13 @@ public class ServerlessEngine implements CommandLineRunner {
         userEnv.put("DB_URL", "jdbc:h2:mem:testdb");
         userEnv.put("MAX_USERS", "1000");
         
-        /*functionManager.registerFunction(
+        functionManager.registerFunction(
             "user-service",
             "functions/user-function.jar",
             "com.example.functions.UserServiceFunction",
             60000, // 60秒超时
-            256 * 1024 * 1024, // 256MB内存
             userEnv
-        );*/
+        );
     }
     
     /**

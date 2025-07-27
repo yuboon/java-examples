@@ -4,6 +4,7 @@ import com.example.model.ExecutionContext;
 import com.example.model.ExecutionResult;
 import com.example.model.ServerlessFunction;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
@@ -20,7 +21,10 @@ import java.util.concurrent.*;
 @Component
 @Slf4j
 public class FunctionExecutor {
-    
+
+    @Autowired
+    private ClassLoaderPool classLoaderPool;
+
     private final ExecutorService executorService;
     
     public FunctionExecutor() {
@@ -42,39 +46,23 @@ public class FunctionExecutor {
         ExecutionResult result = new ExecutionResult(context.getRequestId(), functionName);
 
         Future<Object> future = executorService.submit(() -> {
-            IsolatedClassLoader classLoader = null;
-            try {
-                // 创建隔离的类加载器
-                URL jarUrl = new File(jarPath).toURI().toURL();
-                classLoader = new IsolatedClassLoader(
-                    functionName, 
-                    new URL[]{jarUrl}, 
-                    Thread.currentThread().getContextClassLoader()
-                );
-                
-                // 加载函数类
-                Class<?> functionClass = classLoader.loadClass(className);
-                Object functionInstance = functionClass.getDeclaredConstructor().newInstance();
-                
-                // 检查是否实现了ServerlessFunction接口
-                if (!(functionInstance instanceof ServerlessFunction)) {
-                    throw new IllegalArgumentException(
-                        "Function class must implement ServerlessFunction interface");
-                }
-                
-                ServerlessFunction function = (ServerlessFunction) functionInstance;
-                // 执行函数
-                return function.handle(input, context);
-                
-            } finally {
-                if (classLoader != null) {
-                    try {
-                        classLoader.close();
-                    } catch (Exception e) {
-                        // 忽略关闭异常
-                    }
-                }
+            // 从池中获取ClassLoader（不需要每次创建）
+            IsolatedClassLoader classLoader = classLoaderPool.getClassLoader(
+                    functionName, jarPath, className);
+
+            // 加载函数类
+            Class<?> functionClass = classLoader.loadClass(className);
+            Object functionInstance = functionClass.getDeclaredConstructor().newInstance();
+
+            // 检查是否实现了ServerlessFunction接口
+            if (!(functionInstance instanceof ServerlessFunction)) {
+                throw new IllegalArgumentException(
+                    "Function class must implement ServerlessFunction interface");
             }
+
+            ServerlessFunction function = (ServerlessFunction) functionInstance;
+            // 执行函数
+            return function.handle(input, context);
         });
         
         try {
