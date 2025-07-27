@@ -1,0 +1,47 @@
+# application.yml
+server:
+  port: 8080
+
+spring:
+  application:
+    name: serverless-engine
+  
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+    default-property-inclusion: non_null
+
+# Serverless引擎配置
+serverless:
+  function:
+    # 函数存储目录
+    function-dir: ./functions/
+    # 默认超时时间（毫秒）
+    default-timeout: 30000
+    # 最大并发执行数
+    max-concurrent-executions: 100
+  
+  executor:
+    # 核心线程数
+    core-pool-size: 10
+    # 最大线程数
+    max-pool-size: 50
+    # 线程存活时间（秒）
+    keep-alive-time: 60
+    # 队列容量
+    queue-capacity: 1000
+
+logging:
+  level:
+    com.example: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,env
+  endpoint:
+    health:
+      show-details: always
