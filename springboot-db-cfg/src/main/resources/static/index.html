@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpringBoot系统配置</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            padding: 2rem;
+        }
+
+        .section {
+            margin-bottom: 2rem;
+        }
+
+        .section h2 {
+            color: #333;
+            margin-bottom: 1rem;
+            font-size: 1.8rem;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 0.5rem;
+        }
+
+        .api-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .api-card {
+            background: #f8f9ff;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .api-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.15);
+        }
+
+        .api-card h3 {
+            color: #667eea;
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+        }
+
+        .api-method {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .get { background: #e7f3ff; color: #0066cc; }
+        .post { background: #fff3e0; color: #e65100; }
+
+        .api-url {
+            font-family: 'Courier New', monospace;
+            background: #f5f5f5;
+            padding: 0.8rem;
+            border-radius: 4px;
+            margin: 0.5rem 0;
+            word-break: break-all;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            margin: 0.5rem 0.5rem 0.5rem 0;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .status {
+            padding: 1rem;
+            border-radius: 6px;
+            margin: 1rem 0;
+        }
+
+        .status.loading {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .status.success {
+            background: #d1f2eb;
+            color: #0c5460;
+            border: 1px solid #b8daff;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f8d7da;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .feature-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+
+        .feature-desc {
+            opacity: 0.9;
+            line-height: 1.4;
+        }
+
+        #response {
+            background: #1e1e1e;
+            color: #f8f8f2;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            min-height: 100px;
+            white-space: pre-wrap;
+            overflow-x: auto;
+            margin-top: 1rem;
+        }
+
+        .footer {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            text-align: center;
+            color: #666;
+            border-top: 1px solid #e9ecef;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .main-content {
+                padding: 1rem;
+            }
+            
+            .api-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 SpringBoot系统配置控制台</h1>
+            <p>动态配置管理 • 实时更新 • 零停机运维</p>
+        </div>
+
+        <div class="main-content">
+            <!-- 系统特性 -->
+            <div class="section">
+                <h2>✨ 核心特性</h2>
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">🔄</div>
+                        <div class="feature-title">动态配置</div>
+                        <div class="feature-desc">运行时修改配置无需重启</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🔒</div>
+                        <div class="feature-title">安全加密</div>
+                        <div class="feature-desc">敏感配置自动加密存储</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🌍</div>
+                        <div class="feature-title">多环境</div>
+                        <div class="feature-desc">统一管理各环境配置</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📊</div>
+                        <div class="feature-title">监控告警</div>
+                        <div class="feature-desc">配置变更实时监控</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 快速测试 -->
+            <div class="section">
+                <h2>🎯 快速测试</h2>
+                <button class="btn" onclick="checkHealth()">健康检查</button>
+                <button class="btn" onclick="getCurrentConfigs()">获取当前配置</button>
+                <button class="btn" onclick="getConfigTypes()">配置类型</button>
+                <button class="btn" onclick="getEnvironments()">环境列表</button>
+                <button class="btn" onclick="testDataSource()">测试数据源</button>
+                <button class="btn" onclick="refreshDataSource()">刷新数据源</button>
+                
+                <div id="status" style="display: none;"></div>
+                <pre id="response"></pre>
+            </div>
+
+            <!-- API接口 -->
+            <div class="section">
+                <h2>📡 API接口</h2>
+                <div class="api-grid">
+                    <div class="api-card">
+                        <h3>配置查询</h3>
+                        <div class="api-method get">GET</div>
+                        <div class="api-url">/api/config/current</div>
+                        <p>获取当前环境的所有配置信息</p>
+                    </div>
+
+                    <div class="api-card">
+                        <h3>健康检查</h3>
+                        <div class="api-method get">GET</div>
+                        <div class="api-url">/api/config/health</div>
+                        <p>检查配置系统的健康状态</p>
+                    </div>
+
+                    <div class="api-card">
+                        <h3>业务配置更新</h3>
+                        <div class="api-method post">POST</div>
+                        <div class="api-url">/api/config/business</div>
+                        <p>动态更新业务相关配置参数</p>
+                    </div>
+
+                    <div class="api-card">
+                        <h3>框架配置更新</h3>
+                        <div class="api-method post">POST</div>
+                        <div class="api-url">/api/config/framework</div>
+                        <p>动态更新框架配置（如日志级别）</p>
+                    </div>
+
+                    <div class="api-card">
+                        <h3>配置历史</h3>
+                        <div class="api-method get">GET</div>
+                        <div class="api-url">/api/config/history/{key}</div>
+                        <p>查看指定配置的变更历史</p>
+                    </div>
+
+                    <div class="api-card">
+                        <h3>数据源测试</h3>
+                        <div class="api-method get">GET</div>
+                        <div class="api-url">/api/config/datasource/business/test</div>
+                        <p>测试业务数据源连接状态</p>
+                    </div>
+
+                    <div class="api-card">
+                        <h3>数据源刷新</h3>
+                        <div class="api-method post">POST</div>
+                        <div class="api-url">/api/config/datasource/refresh</div>
+                        <p>手动刷新业务数据源配置</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 使用示例 -->
+            <div class="section">
+                <h2>💡 使用示例</h2>
+                <div class="api-card">
+                    <h3>动态调整日志级别</h3>
+                    <div class="api-url">
+curl -X POST http://localhost:8080/api/config/framework \
+  -H "Content-Type: application/json" \
+  -d '{
+    "configKey": "logging.level.com.example",
+    "configValue": "DEBUG"
+  }'
+                    </div>
+                </div>
+
+                <div class="api-card">
+                    <h3>更新业务配置</h3>
+                    <div class="api-url">
+curl -X POST http://localhost:8080/api/config/business \
+  -H "Content-Type: application/json" \
+  -d '{
+    "configKey": "app.api-rate-limit",
+    "configValue": "2000"
+  }'
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>SpringBoot系统配置控制台 v1.0.0 | 基于Spring Boot 3.4.5 + JDK 21</p>
+        </div>
+    </div>
+
+    <script>
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.className = `status ${type}`;
+            status.textContent = message;
+            status.style.display = 'block';
+        }
+
+        function showResponse(data) {
+            document.getElementById('response').textContent = JSON.stringify(data, null, 2);
+        }
+
+        async function apiCall(url, options = {}) {
+            try {
+                showStatus('请求处理中...', 'loading');
+                const response = await fetch(url, options);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showStatus(`请求成功 (${response.status})`, 'success');
+                    showResponse(data);
+                } else {
+                    showStatus(`请求失败 (${response.status}): ${data.error || data.message || '未知错误'}`, 'error');
+                    showResponse(data);
+                }
+            } catch (error) {
+                showStatus(`网络错误: ${error.message}`, 'error');
+                showResponse({ error: error.message });
+            }
+        }
+
+        function checkHealth() {
+            apiCall('/api/config/health');
+        }
+
+        function getCurrentConfigs() {
+            apiCall('/api/config/current');
+        }
+
+        function getConfigTypes() {
+            apiCall('/api/config/types');
+        }
+
+        function getEnvironments() {
+            apiCall('/api/config/environments');
+        }
+
+        function testDataSource() {
+            apiCall('/api/config/datasource/business/test');
+        }
+
+        function refreshDataSource() {
+            apiCall('/api/config/datasource/refresh', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+        }
+
+        // 页面加载完成后自动检查健康状态
+        window.addEventListener('load', function() {
+            setTimeout(checkHealth, 1000);
+        });
+    </script>
+</body>
+</html>

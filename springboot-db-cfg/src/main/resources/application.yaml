@@ -1,0 +1,126 @@
+# ==========================================
+# Spring Boot 数据库配置系统 - 引导配置文件
+# 这是唯一的硬编码配置文件，仅包含连接配置数据库的基本信息
+# ==========================================
+
+spring:
+  application:
+    name: springboot-db-cfg
+  # 配置数据库连接 - 这是唯一的硬编码配置
+  config-datasource:
+    url: jdbc:mysql://localhost:3306/app_config
+    username: ${CONFIG_DB_USER:root}
+    password: ${CONFIG_DB_PASS:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+# 应用配置数据库化相关设置
+app:
+  config:
+    # 配置缓存设置
+    cache:
+      enabled: true
+      ttl: 300000 # 5分钟
+      max-size: 1000
+      
+    # 加密设置
+    encryption:
+      enabled: true
+      key: ${CONFIG_ENCRYPTION_KEY:defaultConfigKey123}
+      
+    # 监控设置
+    monitoring:
+      enabled: true
+      metrics-enabled: true
+      alert-enabled: true
+
+# 环境配置
+environment:
+  # 当前运行环境，可通过环境变量 SPRING_PROFILES_ACTIVE 覆盖
+  active: ${SPRING_PROFILES_ACTIVE:development}
+
+# 日志配置（初始配置，后续会从数据库加载）
+logging:
+  level:
+    root: INFO
+    com.example: DEBUG
+    com.example.config: DEBUG
+    org.springframework.boot.autoconfigure: INFO
+    org.hibernate.SQL: WARN
+    com.zaxxer.hikari: WARN
+  pattern:
+    console: '%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n'
+    file: '%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n'
+  file:
+    name: logs/springboot-db-cfg.log
+    max-size: 100MB
+    max-history: 30
+
+# 服务器配置（初始配置）
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: /
+  tomcat:
+    max-threads: 200
+    max-connections: 8192
+    accept-count: 100
+
+# 管理端点配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,configprops,env,loggers
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+    configprops:
+      show-values: when-authorized
+    env:
+      show-values: when-authorized
+  metrics:
+    export:
+      simple:
+        enabled: true
+  info:
+    env:
+      enabled: true
+    git:
+      mode: full
+
+# 异步处理配置
+async:
+  executor:
+    thread:
+      core-pool-size: 5
+      max-pool-size: 10
+      queue-capacity: 100
+      keep-alive-seconds: 60
+
+# 调度配置
+scheduling:
+  pool:
+    size: 5
+
+# 安全配置（基础设置）
+security:
+  config:
+    admin-users: ${CONFIG_ADMIN_USERS:admin}
+    read-only-users: ${CONFIG_READONLY_USERS:viewer}
+
+# 备注说明
+info:
+  app:
+    name: SpringBoot数据库配置系统
+    description: 将所有应用配置存储在数据库中的动态配置管理系统
+    version: 1.0.0
+    features:
+      - 动态配置管理
+      - 配置加密存储
+      - 实时配置更新
+      - 配置变更历史
+      - 多环境支持
+      - 框架级配置支持
+      - 监控告警
+    documentation: https://github.com/your-repo/springboot-db-cfg
