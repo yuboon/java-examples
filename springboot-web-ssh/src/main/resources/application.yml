@@ -1,0 +1,47 @@
+# 生产环境配置
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/app_config?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: root
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+
+server:
+  port: 8080
+  servlet:
+    context-path: /
+  compression:
+    enabled: true
+    mime-types: text/html,text/xml,text/plain,text/css,text/javascript,application/javascript,application/json
+  tomcat:
+    max-connections: 200
+    threads:
+      max: 100
+      min-spare: 10
+
+logging:
+  level:
+    root: INFO
+    com.example.webssh: DEBUG
+  file:
+    name: logs/webssh.log
+  pattern:
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# 自定义配置
+webssh:
+  ssh:
+    connection-timeout: 30000
+    session-timeout: 1800000
+    max-connections-per-user: 10
+  file:
+    upload-max-size: 100MB
+    temp-dir: /tmp/webssh-uploads
+  collaboration:
+    enabled: true
+    max-participants: 10
+    session-timeout: 3600000
