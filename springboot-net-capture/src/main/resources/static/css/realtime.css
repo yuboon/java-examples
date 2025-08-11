@@ -1,0 +1,105 @@
+.real-time-log {
+    height: 400px;
+    overflow-y: auto;
+    background-color: #1e1e1e;
+    color: #ffffff;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.log-entry {
+    margin-bottom: 2px;
+    word-wrap: break-word;
+    line-height: 1.4;
+}
+
+.log-time {
+    color: #888;
+    font-weight: bold;
+}
+
+.log-protocol-HTTP {
+    color: #28a745;
+    font-weight: bold;
+}
+
+.log-protocol-TCP {
+    color: #007bff;
+    font-weight: bold;
+}
+
+.log-protocol-UDP {
+    color: #ffc107;
+    font-weight: bold;
+}
+
+.log-protocol-DNS {
+    color: #17a2b8;
+    font-weight: bold;
+}
+
+.log-protocol-系统 {
+    color: #6c757d;
+    font-weight: bold;
+}
+
+.log-protocol-错误 {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+.status-indicator {
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+.filter-card {
+    background-color: #f8f9fa;
+}
+
+.filter-card .form-control,
+.filter-card .form-select {
+    border: 1px solid #dee2e6;
+    transition: border-color 0.15s ease-in-out;
+}
+
+.filter-card .form-control:focus,
+.filter-card .form-select:focus {
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+}
+
+/* 实时统计卡片动画 */
+.metrics-card {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* 日志滚动条样式 */
+.real-time-log::-webkit-scrollbar {
+    width: 8px;
+}
+
+.real-time-log::-webkit-scrollbar-track {
+    background: #2c2c2c;
+}
+
+.real-time-log::-webkit-scrollbar-thumb {
+    background: #666;
+    border-radius: 4px;
+}
+
+.real-time-log::-webkit-scrollbar-thumb:hover {
+    background: #888;
+}

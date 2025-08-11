@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>网络流量抓包分析系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="css/main.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-router"></i>
+                网络流量抓包分析系统
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link active" href="/">首页</a>
+                <a class="nav-link" href="packets.html">数据包</a>
+                <a class="nav-link" href="statistics.html">统计分析</a>
+                <a class="nav-link" href="realtime.html">实时监控</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <h1 class="card-title">
+                            <i class="bi bi-wifi"></i>
+                            网络流量抓包与分析系统
+                        </h1>
+                        <p class="card-text lead">
+                            基于 Spring Boot + Pcap4j 构建的企业级网络监控解决方案
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">
+                            <i class="bi bi-play-circle-fill text-success"></i>
+                            抓包控制
+                        </h5>
+                        <p class="card-text">启动/停止网络数据包捕获</p>
+                        <div id="captureStatus" class="mb-3">
+                            <span class="status-indicator status-stopped"></span>
+                            <span id="statusText">已停止</span>
+                        </div>
+                        <div class="mb-3">
+                            <select id="networkInterface" class="form-select">
+                                <option value="">选择网络接口...</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <input type="text" id="captureFilter" class="form-control" placeholder="过滤规则 (BPF格式)">
+                        </div>
+                        <button id="startCaptureBtn" class="btn btn-success me-2">
+                            <i class="bi bi-play-fill"></i> 开始抓包
+                        </button>
+                        <button id="stopCaptureBtn" class="btn btn-danger">
+                            <i class="bi bi-stop-fill"></i> 停止抓包
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card metrics-card h-100">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">
+                            <i class="bi bi-graph-up"></i>
+                            实时统计
+                        </h5>
+                        <div class="row">
+                            <div class="col-6">
+                                <h3 id="totalPackets">0</h3>
+                                <small>总数据包</small>
+                            </div>
+                            <div class="col-6">
+                                <h3 id="totalBytes">0</h3>
+                                <small>总字节数</small>
+                            </div>
+                        </div>
+                        <hr class="my-3" style="border-color: rgba(255,255,255,0.3);">
+                        <div class="row">
+                            <div class="col-4">
+                                <div id="httpPackets">0</div>
+                                <small>HTTP</small>
+                            </div>
+                            <div class="col-4">
+                                <div id="tcpPackets">0</div>
+                                <small>TCP</small>
+                            </div>
+                            <div class="col-4">
+                                <div id="udpPackets">0</div>
+                                <small>UDP</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="bi bi-list-ul"></i>
+                            快速访问
+                        </h5>
+                        <div class="list-group list-group-flush">
+                            <a href="packets.html" class="list-group-item list-group-item-action">
+                                <i class="bi bi-collection"></i>
+                                查看数据包列表
+                            </a>
+                            <a href="statistics.html" class="list-group-item list-group-item-action">
+                                <i class="bi bi-bar-chart"></i>
+                                统计分析报告
+                            </a>
+                            <a href="realtime.html" class="list-group-item list-group-item-action">
+                                <i class="bi bi-activity"></i>
+                                实时流量监控
+                            </a>
+                            <a href="/h2-console" target="_blank" class="list-group-item list-group-item-action">
+                                <i class="bi bi-database"></i>
+                                数据库管理界面
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-info-circle"></i>
+                            系统特性
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <h6><i class="bi bi-shield-check text-success"></i> 多协议支持</h6>
+                                <p class="small text-muted">支持 HTTP、TCP、UDP、DNS、DHCP 等多种网络协议解析</p>
+                            </div>
+                            <div class="col-md-3">
+                                <h6><i class="bi bi-speedometer2 text-primary"></i> 实时监控</h6>
+                                <p class="small text-muted">WebSocket 实时数据推送，支持在线流量监控</p>
+                            </div>
+                            <div class="col-md-3">
+                                <h6><i class="bi bi-graph-up-arrow text-warning"></i> 数据分析</h6>
+                                <p class="small text-muted">提供流量统计、协议分析、IP排名等多维度数据分析</p>
+                            </div>
+                            <div class="col-md-3">
+                                <h6><i class="bi bi-search text-info"></i> 智能过滤</h6>
+                                <p class="small text-muted">支持 BPF 过滤规则，可按协议、IP、端口等条件筛选</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/index.js"></script>
+</body>
+</html>

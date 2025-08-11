@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>统计分析 - 网络流量抓包分析系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="css/main.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-router"></i>
+                网络流量抓包分析系统
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/">首页</a>
+                <a class="nav-link" href="packets.html">数据包</a>
+                <a class="nav-link active" href="statistics.html">统计分析</a>
+                <a class="nav-link" href="realtime.html">实时监控</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- 统计概览卡片 -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card metrics-card h-100">
+                    <div class="card-body text-center">
+                        <i class="bi bi-collection fs-1 mb-2"></i>
+                        <div class="metric-value" id="totalPacketsCard">0</div>
+                        <div>总数据包</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card metrics-card h-100">
+                    <div class="card-body text-center">
+                        <i class="bi bi-hdd fs-1 mb-2"></i>
+                        <div class="metric-value" id="totalBytesCard">0</div>
+                        <div>总流量</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card metrics-card h-100">
+                    <div class="card-body text-center">
+                        <i class="bi bi-globe fs-1 mb-2"></i>
+                        <div class="metric-value" id="httpPacketsCard">0</div>
+                        <div>HTTP 数据包</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card metrics-card h-100">
+                    <div class="card-body text-center">
+                        <i class="bi bi-speedometer fs-1 mb-2"></i>
+                        <div class="metric-value" id="avgPacketSizeCard">0</div>
+                        <div>平均包大小</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- 协议分布图 -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-pie-chart"></i>
+                            协议分布
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="protocolChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 流量趋势图 -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-graph-up"></i>
+                            流量趋势 (最近24小时)
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="trendChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <!-- Top 源IP -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-arrow-up-right"></i>
+                            Top 源IP地址
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>IP地址</th>
+                                        <th>数据包数量</th>
+                                        <th>占比</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="topSourceIpsTable">
+                                    <tr><td colspan="3" class="text-center text-muted">暂无数据</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top 目标IP -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-arrow-down-left"></i>
+                            Top 目标IP地址
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>IP地址</th>
+                                        <th>数据包数量</th>
+                                        <th>占比</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="topDestIpsTable">
+                                    <tr><td colspan="3" class="text-center text-muted">暂无数据</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 历史统计数据 -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-clock-history"></i>
+                            历史统计数据
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>统计时间</th>
+                                        <th>时间窗口</th>
+                                        <th>总数据包</th>
+                                        <th>总字节数</th>
+                                        <th>HTTP</th>
+                                        <th>TCP</th>
+                                        <th>UDP</th>
+                                        <th>平均包大小</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="historyStatsTable">
+                                    <tr><td colspan="8" class="text-center text-muted">暂无数据</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/statistics.js"></script>
+</body>
+</html>

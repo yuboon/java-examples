@@ -1,0 +1,81 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: springboot-net-capture
+  
+  # 数据库配置
+  datasource:
+    url: jdbc:h2:mem:netcapture
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: password
+  
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  
+  # JPA配置
+  jpa:
+    hibernate:
+      ddl-auto: none  # 不使用Hibernate自动建表，使用SQL脚本
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  
+  # SQL脚本配置
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+      continue-on-error: false
+  
+  # 静态资源配置
+  web:
+    resources:
+      static-locations: classpath:/static/
+      cache:
+        period: 3600 # 缓存1小时
+  
+
+# MyBatis Plus配置
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+
+# 网络抓包配置
+network:
+  capture:
+    # 默认网络接口（为空时自动选择）
+    interface: ""
+    # 抓包过滤器（BPF格式）
+    filter: ""
+    # 抓包缓冲区大小（字节）
+    buffer-size: 65536
+    # 抓包超时时间（毫秒）
+    timeout: 1000
+    # 是否启用混杂模式
+    promiscuous: false
+    # 最大抓包数量（0表示无限制）
+    max-packets: 0
+    # 是否自动启动抓包
+    auto-start: false
+    # 数据保留时间（小时）
+    data-retention-hours: 24
+
+# 日志配置
+logging:
+  level:
+    com.example.netcapture: DEBUG
+    org.pcap4j: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>实时监控 - 网络流量抓包分析系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="css/main.css" rel="stylesheet">
+    <link href="css/realtime.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-router"></i>
+                网络流量抓包分析系统
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/">首页</a>
+                <a class="nav-link" href="packets.html">数据包</a>
+                <a class="nav-link" href="statistics.html">统计分析</a>
+                <a class="nav-link active" href="realtime.html">实时监控</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <!-- 连接状态和控制 -->
+        <div class="row mb-4">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <span id="connectionStatus" class="status-indicator bg-danger"></span>
+                            实时数据流
+                        </h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="realTimeLog" class="real-time-log">
+                            <div class="log-entry">
+                                <span class="log-time">[等待连接...]</span> 
+                                <span>WebSocket 连接未建立</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="row align-items-center">
+                            <div class="col">
+                                <button id="connectBtn" class="btn btn-success btn-sm me-2">
+                                    <i class="bi bi-play-fill"></i> 开始监控
+                                </button>
+                                <button id="disconnectBtn" class="btn btn-danger btn-sm me-2" disabled>
+                                    <i class="bi bi-stop-fill"></i> 停止监控
+                                </button>
+                                <button id="clearBtn" class="btn btn-outline-secondary btn-sm">
+                                    <i class="bi bi-trash"></i> 清空日志
+                                </button>
+                            </div>
+                            <div class="col-auto">
+                                <small class="text-muted">
+                                    已显示: <span id="logCount">0</span> 条记录
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <!-- 实时统计 -->
+                <div class="card metrics-card mb-3">
+                    <div class="card-body text-center">
+                        <h6>实时统计</h6>
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="fs-4" id="realtimePackets">0</div>
+                                <small>数据包/分钟</small>
+                            </div>
+                            <div class="col-6">
+                                <div class="fs-4" id="realtimeBytes">0</div>
+                                <small>字节/分钟</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 过滤器 -->
+                <div class="card filter-card">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="bi bi-funnel"></i>
+                            实时过滤
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">协议过滤</label>
+                            <select id="protocolFilter" class="form-select form-select-sm">
+                                <option value="">所有协议</option>
+                                <option value="HTTP">HTTP</option>
+                                <option value="TCP">TCP</option>
+                                <option value="UDP">UDP</option>
+                                <option value="DNS">DNS</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">IP地址过滤</label>
+                            <input type="text" id="ipFilter" class="form-control form-control-sm" 
+                                   placeholder="输入IP地址">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">URL过滤</label>
+                            <input type="text" id="urlFilter" class="form-control form-control-sm" 
+                                   placeholder="输入URL关键词">
+                        </div>
+                        <button id="applyFilterBtn" class="btn btn-primary btn-sm w-100">
+                            <i class="bi bi-check"></i> 应用过滤
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 数据包详细信息 -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="bi bi-table"></i>
+                            最新数据包详情
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>时间</th>
+                                        <th>协议</th>
+                                        <th>源地址</th>
+                                        <th>目标地址</th>
+                                        <th>长度</th>
+                                        <th>详细信息</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recentPacketsTable">
+                                    <tr>
+                                        <td colspan="6" class="text-center text-muted">暂无数据</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/realtime.js"></script>
+</body>
+</html>
