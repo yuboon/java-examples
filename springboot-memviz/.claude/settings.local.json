@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mvn:*)",
+      "WebFetch(domain:javadoc.io)",
+      "WebFetch(domain:github.com)",
+      "Bash(timeout:*)",
+      "Bash(ping:*)",
+      "Bash(curl:*)"
+    ],
+    "deny": []
+  }
+}

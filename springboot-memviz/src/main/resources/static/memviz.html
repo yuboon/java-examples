@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>JVM 内存对象拓扑图</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        body { margin:0; font:14px/1.4 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial; background:#0b0f14; color:#e6edf3; }
+        header { padding:12px 16px; display:flex; gap:12px; align-items:center; position:sticky; top:0; background:#0b0f14; border-bottom:1px solid #1f2937; z-index:10;}
+        header input, header select, header button { padding:6px 10px; background:#111827; color:#e6edf3; border:1px solid #374151; border-radius:8px; }
+        header button { cursor:pointer; }
+        #panel { width:400px; position:fixed; right:10px; top:70px; bottom:10px; background:#0f172a; border:1px solid #1f2937; border-radius:12px; padding:10px; overflow:auto; }
+        #graph { position:absolute; left:0; top:56px; right:420px; bottom:0; }
+        .legend { display:flex; gap:8px; align-items:center; }
+        .pill { display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid #334155; }
+        .muted { color:#9ca3af; }
+        .tab-buttons { display:flex; gap:4px; margin-bottom:12px; }
+        .tab-btn { padding:6px 12px; background:#1f2937; border:1px solid #374151; border-radius:6px; cursor:pointer; font-size:12px; }
+        .tab-btn.active { background:#3b82f6; color:white; }
+        .tab-content { display:none; }
+        .tab-content.active { display:block; }
+        .top-item { padding:4px 8px; margin:2px 0; background:#1f2937; border-radius:4px; cursor:pointer; font-size:12px; }
+        .top-item:hover { background:#374151; }
+        .top-rank { display:inline-block; width:20px; color:#6b7280; }
+        .stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:12px; }
+        .stat-item { padding:6px; background:#1f2937; border-radius:4px; text-align:center; }
+        .stat-value { font-weight:bold; color:#3b82f6; }
+        .detail-row { display:flex; justify-content:space-between; margin:4px 0; padding:2px 0; }
+        .detail-label { color:#9ca3af; }
+        .detail-value { font-weight:bold; }
+        .loading { position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:#1f2937; padding:20px; border-radius:8px; border:1px solid #374151; z-index:1000; display:none; }
+        .loading-spinner { width:40px; height:40px; border:3px solid #374151; border-top:3px solid #3b82f6; border-radius:50%; animation:spin 1s linear infinite; margin:0 auto 10px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .loading-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:999; display:none; }
+        /* svg */
+        svg { width:100%; height:100%; }
+        .link { stroke:#6b7280; stroke-opacity:0.45; }
+        .node circle { stroke:#111827; stroke-width:1; cursor:grab; }
+        .node text { fill:#d1d5db; font-size:12px; pointer-events:none; }
+        .highlight { stroke:#f59e0b !important; stroke-width:2.5 !important; }
+    </style>
+</head>
+<body>
+
+<header>
+    <strong>MemViz</strong>
+    <button id="btnSnap">生成快照</button>
+    <label>HPROF 文件</label><input id="file" size="50" placeholder="/tmp/memviz/heap_*.hprof" />
+    <label>类过滤</label><input id="include" size="30" placeholder="com.myapp.,java.util." value="com.example" />
+    <label>折叠集合</label>
+    <select id="collapse" title="将ArrayList、HashMap等集合类型的多个元素聚合显示，减少图的复杂度">
+        <option value="true">是 (推荐)</option><option value="false">否</option>
+    </select>
+    <button id="btnLoad">加载图</button>
+</header>
+
+<div id="graph"></div>
+<aside id="panel">
+    <div class="stat-grid">
+        <div class="stat-item">
+            <div class="stat-value" id="totalObjects">-</div>
+            <div class="muted">总对象数</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value" id="totalMemory">-</div>
+            <div class="muted">总内存</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value" id="graphObjects">-</div>
+            <div class="muted">图中对象</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value" id="graphMemory">-</div>
+            <div class="muted">图中内存</div>
+        </div>
+    </div>
+    
+    <div class="tab-buttons">
+        <div class="tab-btn active" onclick="switchTab('detail')">对象详情</div>
+        <div class="tab-btn" onclick="switchTab('top100')">Top100类</div>
+        <div class="tab-btn" onclick="switchTab('instances')" style="display:none;">类实例</div>
+    </div>
+    
+    <div id="tab-detail" class="tab-content active">
+        <h3>对象详情</h3>
+        <div id="info" class="muted">点击节点查看详细信息</div>
+        <hr style="border-color:#374151; margin:12px 0;"/>
+        <div class="legend">
+            <span class="pill" style="background:#1f2937">图例说明</span>
+            <span class="muted">节点大小=内存占用；颜色=代码类别</span>
+        </div>
+    </div>
+    
+    <div id="tab-top100" class="tab-content">
+        <h3>内存占用Top100类</h3>
+        <div id="top100-list" class="muted">加载图后显示</div>
+    </div>
+    
+    <div id="tab-instances" class="tab-content">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <h3 id="instances-title">类实例列表</h3>
+            <button onclick="switchTab('top100')" style="padding:4px 8px; background:#374151; border:1px solid #4b5563; border-radius:4px; color:#e6edf3; font-size:11px; cursor:pointer;">返回</button>
+        </div>
+        <div style="font-size:11px; color:#9ca3af; margin-bottom:8px; padding:4px 8px; background:#1f2937; border-radius:4px;">
+            💡 显示该类中内存占用最大的实例，右侧数字表示：实例大小 / 在该类中的占比
+        </div>
+        <div id="instances-list" class="muted">选择一个类查看其实例</div>
+    </div>
+</aside>
+
+<!-- Loading 提示 -->
+<div id="loading-overlay" class="loading-overlay"></div>
+<div id="loading" class="loading">
+    <div class="loading-spinner"></div>
+    <div style="text-align:center; color:#e6edf3;">正在解析HPROF文件...</div>
+</div>
+
+<script>
+    const qs = s => document.querySelector(s);
+    const btnSnap = qs('#btnSnap');
+    const btnLoad = qs('#btnLoad');
+    let currentData = null;
+
+    // Loading控制函数
+    function showLoading() {
+      qs('#loading-overlay').style.display = 'block';
+      qs('#loading').style.display = 'block';
+    }
+
+    function hideLoading() {
+      qs('#loading-overlay').style.display = 'none';
+      qs('#loading').style.display = 'none';
+    }
+
+    // 标签页切换
+    function switchTab(tabName) {
+        // 更新按钮状态
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelector(`.tab-btn[onclick="switchTab('${tabName}')"]`).classList.add('active');
+        
+        // 更新内容显示
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+        document.getElementById(`tab-${tabName}`).classList.add('active');
+    }
+
+    btnSnap.onclick = async () => {
+      const resp = await fetch('/memviz/snapshot', { method:'POST' });
+      const data = await resp.json();
+      qs('#file').value = data.file;
+      alert('快照完成：' + data.file);
+    };
+
+    btnLoad.onclick = async () => {
+      const file = qs('#file').value.trim();
+      if (!file) return alert('请填写 HPROF 文件路径');
+      
+      try {
+        showLoading();
+        const include = encodeURIComponent(qs('#include').value.trim());
+        const collapse = qs('#collapse').value;
+        const url = `/memviz/graph?file=${encodeURIComponent(file)}&include=${include}&collapseCollections=${collapse}`;
+        const data = await fetch(url).then(r => r.json());
+        currentData = data;
+        window.currentData = data; // 保存数据供其他函数使用
+        renderGraph(data);
+        updateStats(data);
+        renderTop100(data);
+        
+        // 重置界面状态
+        resetUIState();
+      } catch (error) {
+        alert('加载失败: ' + error.message);
+      } finally {
+        hideLoading();
+      }
+    };
+
+    function resetUIState() {
+      // 隐藏实例标签页
+      const instancesTab = document.querySelector('.tab-btn[onclick="switchTab(\'instances\')"]');
+      instancesTab.style.display = 'none';
+      
+      // 切换回详情标签页
+      if (document.getElementById('tab-instances').classList.contains('active')) {
+        switchTab('detail');
+      }
+    }
+
+    function updateStats(data) {
+      qs('#totalObjects').textContent = data.totalObjects || 0;
+      qs('#totalMemory').textContent = data.formattedTotalMemory || '0B';
+      
+      // 计算图中的统计信息
+      const graphObjects = data.nodes ? data.nodes.length : 0;
+      const graphMemoryBytes = data.nodes ? data.nodes.reduce((sum, node) => sum + (node.shallowSize || 0), 0) : 0;
+      const graphMemoryFormatted = formatBytes(graphMemoryBytes);
+      
+      qs('#graphObjects').textContent = graphObjects;
+      qs('#graphMemory').textContent = graphMemoryFormatted;
+    }
+
+    function renderTop100(data) {
+      const container = qs('#top100-list');
+      if (!data.top100Classes || data.top100Classes.length === 0) {
+        container.innerHTML = '<div class="muted">暂无数据</div>';
+        return;
+      }
+      
+      const html = data.top100Classes.map(classStat => `
+        <div class="top-item" onclick="selectClassByName('${classStat.className}')">
+          <span class="top-rank">#${classStat.rank}</span>
+          <strong>${classStat.shortName}</strong>
+          <div style="font-size:11px; color:#9ca3af;">
+            ${classStat.instanceCount}个实例 | 浅表: ${classStat.formattedTotalSize} | 深度: ${classStat.formattedTotalDeepSize || classStat.formattedTotalSize}
+          </div>
+          <div style="font-size:10px; color:#6b7280;">
+            平均浅表: ${classStat.formattedAvgSize} | 平均深度: ${classStat.formattedAvgDeepSize || classStat.formattedAvgSize}
+          </div>
+          <div style="font-size:10px; color:#6b7280;">
+            ${classStat.category} | ${classStat.packageName}
+          </div>
+        </div>
+      `).join('');
+      
+      container.innerHTML = html;
+    }
+
+    function selectClassByName(className) {
+      if (!currentData) return;
+      
+      // 找到该类的统计信息
+      const classStat = currentData.top100Classes.find(c => c.className === className);
+      if (!classStat) return;
+      
+      // 显示该类的实例列表
+      showClassInstances(classStat);
+      
+      // 找到该类的所有节点并高亮
+      const classNodes = currentData.nodes.filter(n => n.className === className);
+      if (classNodes.length > 0) {
+        // 显示第一个节点的信息（代表这个类）
+        showInfo(classNodes[0]);
+        
+        // 在SVG中高亮所有该类的节点
+        const svgNodes = document.querySelectorAll('.node');
+        svgNodes.forEach(n => n.querySelector('circle').classList.remove('highlight'));
+        
+        classNodes.forEach(nodeData => {
+          const targetNode = Array.from(svgNodes).find(n => {
+            const svgNodeData = d3.select(n).datum();
+            return svgNodeData && svgNodeData.id === nodeData.id;
+          });
+          
+          if (targetNode) {
+            targetNode.querySelector('circle').classList.add('highlight');
+          }
+        });
+      }
+    }
+
+    function showClassInstances(classStat) {
+      // 显示实例标签页按钮
+      const instancesTab = document.querySelector('.tab-btn[onclick="switchTab(\'instances\')"]');
+      instancesTab.style.display = 'block';
+      
+      // 切换到实例标签页
+      switchTab('instances');
+      
+      // 更新标题
+      qs('#instances-title').textContent = `${classStat.shortName} (${classStat.instanceCount}个实例)`;
+      
+      // 渲染实例列表
+      const container = qs('#instances-list');
+      if (!classStat.topInstances || classStat.topInstances.length === 0) {
+        container.innerHTML = '<div class="muted">该类暂无实例数据</div>';
+        return;
+      }
+      
+      const html = classStat.topInstances.map(instance => `
+        <div class="top-item" onclick="selectInstanceById('${instance.id}')">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <span class="top-rank">#${instance.rank}</span>
+              <strong>对象@${instance.id.slice(-8)}</strong>
+              <div style="font-size:9px; color:#6b7280; margin-top:1px;">ID: ${instance.id}</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-weight:bold; color:#3b82f6;">${instance.formattedSize}</div>
+              <div style="font-size:10px; color:#9ca3af;">${instance.sizePercentInClass.toFixed(1)}%</div>
+            </div>
+          </div>
+          <div style="font-size:11px; color:#9ca3af; margin-top:4px;">
+            ${instance.objectType}${instance.isArray ? ' (数组)' : ''} | ${instance.packageName}
+          </div>
+        </div>
+      `).join('');
+      
+      container.innerHTML = html;
+    }
+
+    function selectInstanceById(instanceId) {
+      if (!currentData) return;
+      
+      // 找到对应的节点
+      const node = currentData.nodes.find(n => n.id === instanceId);
+      if (node) {
+        // 显示详情信息
+        showInfo(node);
+        
+        // 在SVG中高亮该节点
+        const svgNodes = document.querySelectorAll('.node');
+        svgNodes.forEach(n => n.querySelector('circle').classList.remove('highlight'));
+        
+        const targetNode = Array.from(svgNodes).find(n => {
+          const nodeData = d3.select(n).datum();
+          return nodeData && nodeData.id === instanceId;
+        });
+        
+        if (targetNode) {
+          targetNode.querySelector('circle').classList.add('highlight');
+        }
+        
+        // 切换到详情标签页显示具体信息
+        switchTab('detail');
+      }
+    }
+
+    function renderGraph(data) {
+      const root = qs('#graph');
+      root.innerHTML = '';
+      const rect = root.getBoundingClientRect();
+      const width = rect.width || window.innerWidth - 440;
+      const height = window.innerHeight - 60;
+
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      root.appendChild(svg);
+
+      // 颜色映射 - 更新颜色策略
+      const color = (cat) => {
+        if (cat === 'JDK类') return '#60a5fa';
+        if (cat === '第三方') return '#a78bfa'; 
+        if (cat === '业务代码') return '#34d399';
+        return '#6b7280';
+      };
+
+      // 力导向
+      const nodes = data.nodes.map(d => Object.assign({}, d));
+      const links = data.links.map(l => Object.assign({}, l));
+
+      const sim = d3.forceSimulation(nodes)
+          .force('link', d3.forceLink(links).id(d => d.id).distance(80).strength(0.4))
+          .force('charge', d3.forceManyBody().strength(-120))
+          .force('center', d3.forceCenter(width/2, height/2));
+
+      // zoom/pan
+      const g = d3.select(svg).append('g');
+      d3.select(svg).call(d3.zoom().scaleExtent([0.1, 4]).on('zoom', (ev) => g.attr('transform', ev.transform)));
+
+      const link = g.selectAll('.link')
+          .data(links).enter()
+          .append('line')
+          .attr('class', 'link');
+
+      const node = g.selectAll('.node')
+          .data(nodes).enter()
+          .append('g').attr('class','node')
+          .call(d3.drag()
+            .on('start', (ev, d) => { if (!ev.active) sim.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+            .on('drag', (ev, d) => { d.fx = ev.x; d.fy = ev.y; })
+            .on('end',  (ev, d) => { if (!ev.active) sim.alphaTarget(0); /* 保持固定位置，不重置fx和fy */ }));
+
+      node.append('circle')
+          .attr('r', d => Math.max(5, Math.min(30, Math.sqrt(d.shallowSize))))
+          .attr('fill', d => color(d.category))
+          .on('click', (ev, d) => showInfo(d));
+
+      node.append('text')
+          .attr('dy', -10)
+          .attr('text-anchor','middle')
+          .text(d => d.label); // 显示完整标签信息
+
+      sim.on('tick', () => {
+        link
+          .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+          .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+        node.attr('transform', d => `translate(${d.x},${d.y})`);
+      });
+
+      function showInfo(d) {
+        // 清除之前的高亮
+        document.querySelectorAll('.node circle').forEach(circle => circle.classList.remove('highlight'));
+        // 添加当前高亮
+        event.target.classList.add('highlight');
+        
+        // 查找对应的类统计信息
+        let classStat = null;
+        if (window.currentData && window.currentData.top100Classes) {
+          classStat = window.currentData.top100Classes.find(cls => cls.className === d.className);
+        }
+        
+        let instancesHtml = '';
+        if (classStat && classStat.topInstances && classStat.topInstances.length > 0) {
+          instancesHtml = `
+            <hr style="border-color:#374151; margin:8px 0;"/>
+            <h4>Top ${Math.min(100, classStat.topInstances.length)} 实例对象 <span style="font-size:12px; color:#9ca3af;">(点击查看详情)</span></h4>
+            <div style="max-height:300px; overflow-y:auto;">
+              <table style="width:100%; border-collapse:collapse; font-size:12px;">
+                <thead>
+                  <tr style="border-bottom:1px solid #374151;">
+                    <th style="text-align:left; padding:4px;">排名</th>
+                    <th style="text-align:left; padding:4px;">对象ID</th>
+                    <th style="text-align:right; padding:4px;">浅表大小</th>
+                    <th style="text-align:right; padding:4px;">深度大小</th>
+                    <th style="text-align:right; padding:4px;">占比</th>
+                    <th style="text-align:left; padding:4px;">类型</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${classStat.topInstances.map((instance, index) => `
+                    <tr style="border-bottom:1px solid #1f2937; cursor:pointer;" 
+                        onclick="showInstanceDetails('${instance.id}', '${d.className}')" 
+                        onmouseover="this.style.backgroundColor='#374151'" 
+                        onmouseout="this.style.backgroundColor='transparent'">
+                      <td style="padding:4px;">#${instance.rank}</td>
+                      <td style="padding:4px; color:#60a5fa;">${instance.id}</td>
+                      <td style="padding:4px; text-align:right;">${instance.formattedSize}</td>
+                      <td style="padding:4px; text-align:right;">${instance.formattedRetainedSize}</td>
+                      <td style="padding:4px; text-align:right;">${instance.sizePercentInClass.toFixed(1)}%</td>
+                      <td style="padding:4px;">${instance.objectType}${instance.isArray ? ' (数组)' : ''}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          `;
+        }
+        
+        let propertiesHtml = '';
+        if (d.fields && d.fields.length > 0) {
+          propertiesHtml = `
+            <hr style="border-color:#374151; margin:8px 0;"/>
+            <h4>代表性实例属性分析</h4>
+            <div style="max-height:200px; overflow-y:auto;">
+              <table style="width:100%; border-collapse:collapse; font-size:12px;">
+                <thead>
+                  <tr style="border-bottom:1px solid #374151;">
+                    <th style="text-align:left; padding:4px;">字段名</th>
+                    <th style="text-align:left; padding:4px;">类型</th>
+                    <th style="text-align:right; padding:4px;">大小</th>
+                    <th style="text-align:right; padding:4px;">占比</th>
+                    <th style="text-align:left; padding:4px;">值</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${d.fields.map(field => `
+                    <tr style="border-bottom:1px solid #1f2937;">
+                      <td style="padding:4px;">${field.name}</td>
+                      <td style="padding:4px; color:#9ca3af;">${field.type}</td>
+                      <td style="padding:4px; text-align:right;">${field.formattedSize}</td>
+                      <td style="padding:4px; text-align:right;">${Math.round(field.sizePercent * 100)}%</td>
+                      <td style="padding:4px; overflow:hidden; text-overflow:ellipsis; max-width:150px;">${field.value}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          `;
+        }
+        
+        qs('#info').innerHTML = `
+          <div class="detail-row">
+            <span class="detail-label">对象ID:</span>
+            <span class="detail-value">${d.id}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">类名:</span>
+            <span class="detail-value">${d.className}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">浅表大小:</span>
+            <span class="detail-value">${classStat ? classStat.formattedTotalSize : (d.formattedSize || formatBytes(d.shallowSize))}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">深度大小:</span>
+            <span class="detail-value">${classStat ? classStat.formattedTotalDeepSize : (d.formattedDeepSize || formatBytes(d.deepSize || d.shallowSize))}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">类别:</span>
+            <span class="detail-value">${d.category}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">实例数量:</span>
+            <span class="detail-value">${d.instanceCount}个</span>
+          </div>
+          ${instancesHtml}
+          ${propertiesHtml}
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">代码类型:</span>
+            <span class="detail-value">${d.category}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">包名:</span>
+            <span class="detail-value">${d.packageName || '未知'}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">对象类型:</span>
+            <span class="detail-value">${d.objectType || '普通类'}${d.isArray ? ' (数组)' : ''}</span>
+          </div>
+          <hr style="border-color:#374151; margin:8px 0;"/>
+          <div class="muted" style="font-size:11px;">提示：连线上的字段信息可通过鼠标悬停查看</div>
+        `;
+      }
+
+      // 给每条边加上 title（字段名）
+      g.selectAll('.link').append('title').text(l => l.field || '');
+      
+      // 显示实例详细信息的函数
+      window.showInstanceDetails = function(instanceId, className) {
+        if (!window.currentData || !window.currentData.top100Classes) {
+          console.error('数据未加载');
+          return;
+        }
+        
+        // 查找类统计信息
+        const classStat = window.currentData.top100Classes.find(cls => cls.className === className);
+        if (!classStat || !classStat.topInstances) {
+          console.error('未找到类信息:', className);
+          return;
+        }
+        
+        // 查找具体实例
+        const instance = classStat.topInstances.find(inst => inst.id === instanceId);
+        if (!instance) {
+          console.error('未找到实例:', instanceId);
+          return;
+        }
+        
+        // 生成实例属性分析HTML
+        let fieldsHtml = '';
+        if (instance.fields && instance.fields.length > 0) {
+          fieldsHtml = `
+            <hr style="border-color:#374151; margin:8px 0;"/>
+            <h4>对象属性详细分析</h4>
+            <div style="max-height:400px; overflow-y:auto; overflow-x:auto;">
+              <table style="width:100%; border-collapse:collapse; font-size:12px; table-layout:fixed;">
+                <thead>
+                  <tr style="border-bottom:1px solid #374151;">
+                    <th style="text-align:left; padding:4px; width:15%;">字段名</th>
+                    <th style="text-align:left; padding:4px; width:15%;">类型</th>
+                    <th style="text-align:right; padding:4px; width:10%;">浅表大小</th>
+                    <th style="text-align:right; padding:4px; width:10%;">深度大小</th>
+                    <th style="text-align:right; padding:4px; width:8%;">占比</th>
+                    <th style="text-align:left; padding:4px; width:42%;">值</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${instance.fields.map(field => `
+                    <tr style="border-bottom:1px solid #1f2937;">
+                      <td style="padding:4px; width:15%; word-wrap:break-word; word-break:break-all;" title="${field.name}">${field.name}</td>
+                      <td style="padding:4px; width:15%; color:#9ca3af; word-wrap:break-word; word-break:break-all;" title="${field.type}">${field.type}</td>
+                      <td style="padding:4px; width:10%; text-align:right;">${field.formattedSize}</td>
+                      <td style="padding:4px; width:10%; text-align:right; color:#10b981;">${field.formattedRetainedSize || field.formattedSize}</td>
+                      <td style="padding:4px; width:8%; text-align:right;">${(field.retainedSizePercent || field.sizePercent).toFixed(1)}%</td>
+                      <td style="padding:4px; width:42%; word-wrap:break-word; word-break:break-all;" title="${field.value}">${field.value}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          `;
+        } else {
+          fieldsHtml = `
+            <hr style="border-color:#374151; margin:8px 0;"/>
+            <div style="color:#9ca3af; font-style:italic;">该实例没有可分析的字段信息</div>
+          `;
+        }
+        
+        // 显示实例详细信息
+        qs('#info').innerHTML = `
+          <div style="margin-bottom:10px;">
+            <button onclick="showClassInfo('${className}')" style="background:#374151; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">
+              ← 返回类信息
+            </button>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">实例ID:</span>
+            <span class="detail-value">${instance.id}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">所属类:</span>
+            <span class="detail-value">${className}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">浅表大小:</span>
+            <span class="detail-value">${instance.formattedSize}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">深度大小:</span>
+            <span class="detail-value">${instance.formattedRetainedSize}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">类内排名:</span>
+            <span class="detail-value">#${instance.rank}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">类内占比:</span>
+            <span class="detail-value">${instance.sizePercentInClass.toFixed(2)}%</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">对象类型:</span>
+            <span class="detail-value">${instance.objectType}${instance.isArray ? ' (数组)' : ''}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">包名:</span>
+            <span class="detail-value">${instance.packageName || '未知'}</span>
+          </div>
+          ${fieldsHtml}
+          <hr style="border-color:#374151; margin:8px 0;"/>
+          <div class="muted" style="font-size:11px;">提示：这是该实例的详细属性分析</div>
+        `;
+      };
+      
+      // 返回类信息的函数
+      window.showClassInfo = function(className) {
+        if (!window.currentData || !window.currentData.nodes) {
+          console.error('数据未加载');
+          return;
+        }
+        
+        // 查找对应的节点
+        const node = window.currentData.nodes.find(n => n.className === className);
+        if (node) {
+          showInfo(node);
+        }
+      };
+    }
+    
+    function formatBytes(bytes) {
+      if (bytes < 1024) return bytes + 'B';
+      if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + 'KB';
+      if (bytes < 1024*1024*1024) return (bytes/(1024*1024)).toFixed(2) + 'MB';
+      return (bytes/(1024*1024*1024)).toFixed(2) + 'GB';
+    }
+</script>
+<!-- 仅本页使用：D3 from CDN -->
+<script src="https://d3js.org/d3.v7.min.js"></script>
+</body>
+</html>
