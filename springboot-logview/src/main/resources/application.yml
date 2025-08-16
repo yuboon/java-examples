@@ -1,0 +1,62 @@
+# Spring Boot 应用配置
+server:
+  port: 8080
+  servlet:
+    context-path: /
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+
+spring:
+  application:
+    name: springboot-logview
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+    default-property-inclusion: non_null
+
+# 日志查看系统配置
+log:
+  viewer:
+    # 日志文件根目录
+    log-path: ./logs
+    # 允许访问的文件扩展名
+    allowed-extensions:
+      - .log
+      - .txt
+      - .out
+    # 单次查询最大行数
+    max-lines: 1000
+    # 文件最大大小（MB）
+    max-file-size: 100
+    # 是否启用安全检查
+    enable-security: true
+
+# 日志配置
+logging:
+  level:
+    com.example.logviewer: INFO
+    org.springframework: WARN
+    root: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: ./logs/springboot-logview.log
+    max-size: 10MB
+    max-history: 30
+
+# 管理端点配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
