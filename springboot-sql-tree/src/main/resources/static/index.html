@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spring Boot SQL调用树可视化系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .sql-tree-node {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .sql-tree-node:hover {
+            /* 移除transform避免与highlighted-path冲突导致晃动 */
+            cursor: pointer;
+        }
+        .sql-tree-link {
+            fill: none;
+            stroke: #d1d5db;
+            stroke-width: 2px;
+            transition: all 0.3s ease;
+        }
+        .highlighted-path {
+            filter: brightness(1.1) drop-shadow(0 0 3px rgba(59, 130, 246, 0.5));
+            transition: filter 0.15s ease;
+        }
+        .highlighted-link {
+            stroke: #3b82f6;
+            stroke-width: 3px;
+            transition: stroke 0.15s ease, stroke-width 0.15s ease;
+        }
+        .selected-node {
+            filter: brightness(1.2) drop-shadow(0 0 5px rgba(239, 68, 68, 0.6));
+            transition: filter 0.15s ease;
+        }
+        .selected-link {
+            stroke: #ef4444;
+            stroke-width: 4px;
+            stroke-dasharray: 5,5;
+            animation: dash 1s linear infinite;
+        }
+        @keyframes dash {
+            to {
+                stroke-dashoffset: -10;
+            }
+        }
+        .slow-sql {
+            fill: #fbbf24;
+        }
+        .normal-sql {
+            fill: #10b981;
+        }
+        .error-sql {
+            fill: #ef4444;
+        }
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 1000;
+            max-width: 300px;
+            word-wrap: break-word;
+        }
+        .code-block {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .loading {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- 顶部导航栏 -->
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center space-x-4">
+                    <i class="fas fa-project-diagram text-2xl text-blue-600"></i>
+                    <h1 class="text-xl font-bold text-gray-800">SQL调用树可视化系统</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button id="refreshBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-sync-alt mr-2"></i>刷新数据
+                    </button>
+                    <button id="clearBtn" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-trash mr-2"></i>清除数据
+                    </button>
+                    <button id="exportBtn" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-download mr-2"></i>导出数据
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要内容区域 -->
+    <div class="max-w-7xl mx-auto px-4 py-6">
+        <!-- 快速操作栏 -->
+        <div class="bg-white rounded-lg shadow mb-6">
+            <div class="p-4">
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                    <!-- 左侧：筛选操作 -->
+                    <div class="flex flex-wrap items-center gap-3">
+                        <div class="flex items-center gap-2">
+                            <button id="showSlowSqlBtn" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center group" title="快捷键: S">
+                                <i class="fas fa-exclamation-triangle mr-2"></i>慢SQL筛选
+                                <span class="ml-2 text-xs bg-red-600 px-1 rounded opacity-75 group-hover:opacity-100">S</span>
+                            </button>
+                            <button id="showErrorSqlBtn" class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center group" title="快捷键: E">
+                                <i class="fas fa-times-circle mr-2"></i>错误SQL
+                                <span class="ml-2 text-xs bg-orange-600 px-1 rounded opacity-75 group-hover:opacity-100">E</span>
+                            </button>
+                            <button id="showImportantSqlBtn" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center group" title="快捷键: I">
+                                <i class="fas fa-filter mr-2"></i>隐藏普通SQL
+                                <span class="ml-2 text-xs bg-purple-600 px-1 rounded opacity-75 group-hover:opacity-100">I</span>
+                            </button>
+                            <button id="clearTimeFilterBtn" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center group" title="快捷键: C">
+                                <i class="fas fa-times mr-2"></i>清除筛选
+                                <span class="ml-2 text-xs bg-gray-600 px-1 rounded opacity-75 group-hover:opacity-100">C</span>
+                            </button>
+                        </div>
+                        <!-- 筛选状态指示器 -->
+                        <div id="filterStatus" class="hidden bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm flex items-center">
+                            <i class="fas fa-filter mr-1"></i>
+                            <span id="filterStatusText">已筛选</span>
+                            <button class="ml-2 text-blue-600 hover:text-blue-800" onclick="document.getElementById('clearTimeFilterBtn').click()" title="点击清除筛选">
+                                <i class="fas fa-times text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 右侧：配置选项 -->
+                    <div class="flex flex-wrap items-center gap-4">
+                        <div class="flex items-center gap-2">
+                            <label class="text-sm font-medium text-gray-700 flex items-center">
+                                <i class="fas fa-microchip mr-1 text-gray-400"></i>线程:
+                            </label>
+                            <select id="sessionSelect" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="current">当前线程</option>
+                                <option value="all" selected>全部线程</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="text-sm font-medium text-gray-700 flex items-center">
+                                <i class="fas fa-list mr-1 text-gray-400"></i>数据量:
+                            </label>
+                            <select id="dataLimitSelect" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="latest" selected>最新10条</option>
+                                <option value="slowest">最慢10条</option>
+                                <option value="all">全部数据</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="text-sm font-medium text-gray-700 flex items-center">
+                                <i class="fas fa-stopwatch mr-1 text-gray-400"></i>慢SQL阈值:
+                            </label>
+                            <input id="slowSqlThreshold" type="number" value="1" min="0" class="w-20 px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <span class="text-sm text-gray-600">ms</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="text-sm font-medium text-gray-700 flex items-center">
+                                <i class="fas fa-layer-group mr-1 text-gray-400"></i>最大深度:
+                            </label>
+                            <input id="maxDepthFilter" type="number" value="" min="0" placeholder="不限" class="w-20 px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <span class="text-sm text-gray-600">层</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 操作提示 -->
+                <div class="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-500 flex items-center gap-4">
+                    <span class="flex items-center">
+                        <i class="fas fa-info-circle mr-1"></i>操作提示:
+                    </span>
+                    <span>点击节点查看详情</span>
+                    <span>悬停节点高亮调用链</span>
+                    <span>使用快捷键快速筛选</span>
+                    <span class="ml-auto text-blue-600">支持键盘快捷键: S(慢SQL) E(错误) C(清除)</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 统计信息卡片 -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white rounded-lg shadow p-4">
+                <div class="flex items-center">
+                    <div class="p-2 rounded-full bg-blue-100 text-blue-600">
+                        <i class="fas fa-database text-lg"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-xs font-medium text-gray-600">总SQL数量</p>
+                        <p id="totalSqlCount" class="text-xl font-semibold text-gray-900">0</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4">
+                <div class="flex items-center">
+                    <div class="p-2 rounded-full bg-red-100 text-red-600">
+                        <i class="fas fa-exclamation-triangle text-lg"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-xs font-medium text-gray-600">慢SQL数量</p>
+                        <p id="slowSqlCount" class="text-xl font-semibold text-red-600">0</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4">
+                <div class="flex items-center">
+                    <div class="p-2 rounded-full bg-green-100 text-green-600">
+                        <i class="fas fa-clock text-lg"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-xs font-medium text-gray-600">总执行时间</p>
+                        <p id="totalExecutionTime" class="text-xl font-semibold text-gray-900">0ms</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4">
+                <div class="flex items-center">
+                    <div class="p-2 rounded-full bg-purple-100 text-purple-600">
+                        <i class="fas fa-layer-group text-lg"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-xs font-medium text-gray-600">最大深度</p>
+                        <p id="maxDepth" class="text-xl font-semibold text-gray-900">0</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 高级操作面板 (可折叠) -->
+        <div class="bg-white rounded-lg shadow mb-6">
+            <div class="p-4">
+                <button id="toggleAdvancedPanel" class="flex items-center justify-between w-full text-left">
+                    <h3 class="text-md font-semibold text-gray-800">高级操作</h3>
+                    <i id="toggleIcon" class="fas fa-chevron-down text-gray-500"></i>
+                </button>
+                <div id="advancedPanel" class="hidden mt-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-calendar-alt mr-2"></i>开始时间
+                            </label>
+                            <input id="startTime" type="datetime-local" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-calendar-alt mr-2"></i>结束时间
+                            </label>
+                            <input id="endTime" type="datetime-local" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <button id="applyTimeFilterBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
+                            <i class="fas fa-filter mr-2"></i>应用时间过滤
+                        </button>
+                        <button id="applyConfigBtn" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
+                            <i class="fas fa-check mr-2"></i>应用配置
+                        </button>
+                        <button id="testSqlBtn" class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
+                            <i class="fas fa-play mr-2"></i>执行测试SQL
+                        </button>
+                        <label class="flex items-center">
+                            <input id="traceEnabled" type="checkbox" checked class="mr-2">
+                            <span class="text-sm text-gray-700">启用追踪</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 主要内容区域 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- SQL调用树可视化 -->
+            <div class="lg:col-span-2 bg-white rounded-lg shadow">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-semibold text-gray-800">SQL调用树</h2>
+                        <div class="flex items-center space-x-4">
+                            <div class="flex items-center space-x-2 text-sm text-gray-600">
+                                <div class="w-4 h-4 bg-red-500 rounded"></div>
+                                <span>慢SQL</span>
+                            </div>
+                            <div class="flex items-center space-x-2 text-sm text-gray-600">
+                                <div class="w-4 h-4 bg-green-500 rounded"></div>
+                                <span>成功执行</span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 数据信息 -->
+                    <div class="flex justify-between items-center mb-4 p-3 bg-gray-50 rounded-lg">
+                        <div class="text-sm text-gray-600">
+                            <span id="dataInfo">共 0 条数据</span>
+                        </div>
+                    </div>
+                    <div id="loadingIndicator" class="text-center py-8 hidden">
+                        <i class="fas fa-spinner loading text-2xl text-blue-500"></i>
+                        <p class="text-gray-600 mt-2">加载中...</p>
+                    </div>
+                    <div id="emptyState" class="text-center py-12">
+                        <i class="fas fa-database text-4xl text-gray-400 mb-4"></i>
+                        <p class="text-gray-600">暂无SQL调用数据</p>
+                        <p class="text-sm text-gray-500 mt-2">执行一些数据库操作后，SQL调用树将在此显示</p>
+                    </div>
+                    <div id="sqlTreeContainer" class="w-full" style="min-height: 500px;"></div>
+                </div>
+            </div>
+            
+            <!-- SQL详情面板 -->
+            <div class="bg-white rounded-lg shadow">
+                <div class="p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">SQL执行详情</h3>
+                    <div id="sqlDetailPanel" class="text-center text-gray-500 py-8">
+                        <i class="fas fa-mouse-pointer text-gray-400 text-3xl mb-3"></i>
+                        <p>点击树节点查看SQL详情</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+
+    <!-- Tooltip -->
+    <div id="tooltip" class="tooltip hidden"></div>
+
+    <script src="sql-tree.js"></script>
+</body>
+</html>

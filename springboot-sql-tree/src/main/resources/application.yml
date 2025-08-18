@@ -1,0 +1,86 @@
+# Spring Boot SQL调用树可视化系统配置
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: springboot-sql-tree
+  
+  # 数据源配置 (使用H2内存数据库作为示例)
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: 
+  
+  # SQL初始化配置
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+      data-locations: classpath:data.sql
+      continue-on-error: false
+    
+  # H2控制台配置
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+      settings:
+        web-allow-others: true
+
+# MyBatis配置
+mybatis:
+  # 映射文件位置
+  mapper-locations: classpath:mapper/*.xml
+  # 类型别名包
+  type-aliases-package: com.example.sqltree
+  # 配置
+  configuration:
+    # 开启驼峰命名转换
+    map-underscore-to-camel-case: true
+    # 开启延迟加载
+    lazy-loading-enabled: true
+    # 开启二级缓存
+    cache-enabled: true
+    # 日志实现
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+
+# 日志配置
+logging:
+  level:
+    root: INFO
+    com.example.sqltree: DEBUG
+    org.apache.ibatis: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/sql-tree.log
+    max-size: 10MB
+    max-history: 30
+
+# 管理端点配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+# 自定义配置
+sql-tree:
+  # 慢SQL阈值(毫秒)
+  slow-sql-threshold: 1
+  # 是否启用SQL追踪
+  trace-enabled: true
+  # 最大调用深度
+  max-depth: 50
+  # 最大会话数量
+  max-sessions: 100
+  # 是否记录SQL参数
+  record-parameters: true
