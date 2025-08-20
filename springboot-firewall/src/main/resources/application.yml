@@ -1,0 +1,76 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: springboot-firewall
+  
+  # Jackson配置
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    time-zone: GMT+8
+    date-format: yyyy-MM-dd HH:mm:ss
+  
+  # 数据源配置 (H2内嵌数据库)
+  datasource:
+    url: jdbc:h2:mem:firewall;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: 
+  
+  # H2控制台配置
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+      settings:
+        web-allow-others: true
+  
+  # SQL初始化
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+      data-locations: classpath:data.sql
+
+# MyBatis配置
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.example.firewall.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+# 管理端点配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+# 日志配置
+logging:
+  level:
+    com.example.firewall: DEBUG
+    org.springframework.web: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# 防火墙配置
+firewall:
+  enabled: true
+  default-qps-limit: 100
+  default-user-limit: 60
+  cache-size: 1000
+  exclude-paths:
+    - /firewall/**
+    - /h2-console/**
+    - /actuator/**
+    - /static/**
+    - /favicon.ico

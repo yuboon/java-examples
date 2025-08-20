@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web防火墙控制台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#64748b',
+                        success: '#10b981',
+                        warning: '#f59e0b',
+                        danger: '#ef4444',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 font-sans">
+    <div class="min-h-screen">
+        <!-- 顶部导航栏 -->
+        <nav class="bg-white shadow-lg border-b border-gray-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <!-- 左侧 Logo 和导航 -->
+                    <div class="flex items-center space-x-8">
+                        <div class="flex items-center space-x-3">
+                            <div class="bg-blue-600 p-2 rounded-lg">
+                                <i class="fas fa-shield-alt text-white text-xl"></i>
+                            </div>
+                            <span class="text-xl font-bold text-gray-900">Web防火墙</span>
+                        </div>
+                        
+                        <!-- 主导航菜单 -->
+                        <div class="hidden md:flex space-x-4">
+                            <button class="nav-btn active" data-page="dashboard">
+                                <i class="fas fa-tachometer-alt mr-2 text-blue-500"></i>仪表盘
+                            </button>
+                            <button class="nav-btn" data-page="rules">
+                                <i class="fas fa-list-ul mr-2 text-green-500"></i>规则管理
+                            </button>
+                            <button class="nav-btn" data-page="blacklist">
+                                <i class="fas fa-ban mr-2 text-red-500"></i>黑名单
+                            </button>
+                            <button class="nav-btn" data-page="whitelist">
+                                <i class="fas fa-check-circle mr-2 text-emerald-500"></i>白名单
+                            </button>
+                            <button class="nav-btn" data-page="logs">
+                                <i class="fas fa-file-alt mr-2 text-purple-500"></i>访问日志
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 右侧操作按钮 -->
+                    <div class="flex items-center space-x-4">
+                        <button class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors" title="刷新">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 移动端菜单 -->
+            <div class="md:hidden border-t border-gray-200">
+                <div class="px-4 py-2 space-y-1">
+                    <button class="mobile-nav-btn active" data-page="dashboard">
+                        <i class="fas fa-tachometer-alt mr-2"></i>仪表盘
+                    </button>
+                    <button class="mobile-nav-btn" data-page="rules">
+                        <i class="fas fa-list-ul mr-2"></i>规则管理
+                    </button>
+                    <button class="mobile-nav-btn" data-page="blacklist">
+                        <i class="fas fa-ban mr-2"></i>黑名单
+                    </button>
+                    <button class="mobile-nav-btn" data-page="whitelist">
+                        <i class="fas fa-check-circle mr-2"></i>白名单
+                    </button>
+                    <button class="mobile-nav-btn" data-page="logs">
+                        <i class="fas fa-file-alt mr-2"></i>访问日志
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- 主内容区 -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- 仪表盘页面 -->
+            <div id="dashboard-page" class="page-content">
+                <!-- 页面标题 -->
+                <div class="mb-8">
+                    <h1 class="text-3xl font-bold text-gray-900">仪表盘</h1>
+                    <p class="text-gray-600 mt-2">实时监控系统状态和安全指标</p>
+                </div>
+                
+                <!-- 统计卡片 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">今日请求</p>
+                                <p class="text-3xl font-bold text-gray-900" id="total-requests">0</p>
+                            </div>
+                            <div class="bg-blue-100 p-3 rounded-lg">
+                                <i class="fas fa-globe text-blue-600 text-xl"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4 flex items-center text-sm">
+                            <span id="total-requests-change" class="font-medium">+0%</span>
+                            <span class="text-gray-600 ml-2">较昨日</span>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">拦截请求</p>
+                                <p class="text-3xl font-bold text-gray-900" id="blocked-requests">0</p>
+                            </div>
+                            <div class="bg-red-100 p-3 rounded-lg">
+                                <i class="fas fa-ban text-red-600 text-xl"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4 flex items-center text-sm">
+                            <span id="blocked-requests-change" class="font-medium">+0%</span>
+                            <span class="text-gray-600 ml-2">较昨日</span>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">平均响应时间</p>
+                                <p class="text-3xl font-bold text-gray-900" id="avg-response-time">0ms</p>
+                            </div>
+                            <div class="bg-yellow-100 p-3 rounded-lg">
+                                <i class="fas fa-clock text-yellow-600 text-xl"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4 flex items-center text-sm">
+                            <span id="avg-response-time-change" class="font-medium">+0%</span>
+                            <span class="text-gray-600 ml-2">较昨日</span>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">拦截率</p>
+                                <p class="text-3xl font-bold text-gray-900" id="block-rate">0%</p>
+                            </div>
+                            <div class="bg-purple-100 p-3 rounded-lg">
+                                <i class="fas fa-percentage text-purple-600 text-xl"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4 flex items-center text-sm">
+                            <span id="block-rate-change" class="font-medium">+0%</span>
+                            <span class="text-gray-600 ml-2">较昨日</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 请求趋势图表 - 单独一行 -->
+                <div class="mb-8">
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+                        <div class="p-6 border-b border-gray-200">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-lg font-semibold text-gray-900">请求趋势</h3>
+                                <select id="trend-period" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="24h">最近24小时</option>
+                                    <option value="7d">最近7天</option>
+                                    <option value="30d">最近30天</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="p-6">
+                            <canvas id="trend-chart" class="w-full h-80"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 热门API和活跃IP并列 -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- 热门API -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+                        <div class="p-6 border-b border-gray-200">
+                            <h3 class="text-lg font-semibold text-gray-900">热门API</h3>
+                        </div>
+                        <div class="p-6">
+                            <div id="top-apis" class="space-y-4">
+                                <div class="text-center py-8 text-gray-500">
+                                    <i class="fas fa-chart-line text-3xl mb-2"></i>
+                                    <p>暂无数据</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 活跃IP -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+                        <div class="p-6 border-b border-gray-200">
+                            <h3 class="text-lg font-semibold text-gray-900">活跃IP</h3>
+                        </div>
+                        <div class="p-6">
+                            <div id="top-ips" class="space-y-4">
+                                <div class="text-center py-8 text-gray-500">
+                                    <i class="fas fa-network-wired text-3xl mb-2"></i>
+                                    <p>暂无数据</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 规则管理页面 -->
+            <div id="rules-page" class="page-content hidden">
+                <div class="flex items-center justify-between mb-8">
+                    <div>
+                        <h1 class="text-3xl font-bold text-gray-900">规则管理</h1>
+                        <p class="text-gray-600 mt-2">管理防火墙规则和安全策略</p>
+                    </div>
+                    <button id="add-rule-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors">
+                        <i class="fas fa-plus"></i>
+                        <span>添加规则</span>
+                    </button>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+                    <div class="overflow-x-auto">
+                        <table class="w-full" id="rules-table">
+                            <thead class="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th class="px-6 py-4 text-left text-sm font-medium text-gray-900">规则名称</th>
+                                    <th class="px-6 py-4 text-left text-sm font-medium text-gray-900">类型</th>
+                                    <th class="px-6 py-4 text-left text-sm font-medium text-gray-900">匹配条件</th>
+                                    <th class="px-6 py-4 text-left text-sm font-medium text-gray-900">动作</th>
+                                    <th class="px-6 py-4 text-left text-sm font-medium text-gray-900">状态</th>
+                                    <th class="px-6 py-4 text-left text-sm font-medium text-gray-900">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200">
+                                <!-- 动态加载 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 访问日志页面 -->
+            <div id="logs-page" class="page-content hidden">
+                <div class="mb-8">
+                    <h1 class="text-3xl font-bold text-gray-900">访问日志</h1>
+                    <p class="text-gray-600 mt-2">查看和分析系统访问记录</p>
+                </div>
+                
+                <!-- 过滤器 -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">时间范围</label>
+                            <select id="time-range-filter" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="1h">最近1小时</option>
+                                <option value="24h" selected>最近24小时</option>
+                                <option value="7d">最近7天</option>
+                                <option value="custom">自定义</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">状态</label>
+                            <select id="status-filter" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="all">全部</option>
+                                <option value="normal">正常</option>
+                                <option value="blocked">被拦截</option>
+                                <option value="error">异常</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">IP地址</label>
+                            <input type="text" id="ip-filter" placeholder="输入IP地址" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div class="flex items-end">
+                            <button id="search-logs-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+                                <i class="fas fa-search mr-2"></i>搜索
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 日志表格 -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th class="px-6 py-4 text-left text-sm font-medium text-gray-900">时间</th>
+                                    <th class="px-6 py-4 text-left text-sm font-medium text-gray-900">IP地址</th>
+                                    <th class="px-6 py-4 text-left text-sm font-medium text-gray-900">请求方法</th>
+                                    <th class="px-6 py-4 text-left text-sm font-medium text-gray-900">URL</th>
+                                    <th class="px-6 py-4 text-left text-sm font-medium text-gray-900">状态码</th>
+                                    <th class="px-6 py-4 text-left text-sm font-medium text-gray-900">响应时间</th>
+                                    <th class="px-6 py-4 text-left text-sm font-medium text-gray-900">状态</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200" id="logs-table-body">
+                                <!-- 示例数据 -->
+                                <tr>
+                                    <td class="px-6 py-4 text-sm text-gray-900">2024-01-15 14:30:25</td>
+                                    <td class="px-6 py-4 text-sm text-gray-900">192.168.1.100</td>
+                                    <td class="px-6 py-4 text-sm text-gray-900">GET</td>
+                                    <td class="px-6 py-4 text-sm text-gray-900">/api/users</td>
+                                    <td class="px-6 py-4 text-sm text-gray-900">200</td>
+                                    <td class="px-6 py-4 text-sm text-gray-900">125ms</td>
+                                    <td class="px-6 py-4">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                            正常
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="px-6 py-4 text-sm text-gray-900">2024-01-15 14:29:18</td>
+                                    <td class="px-6 py-4 text-sm text-gray-900">10.0.0.50</td>
+                                    <td class="px-6 py-4 text-sm text-gray-900">POST</td>
+                                    <td class="px-6 py-4 text-sm text-gray-900">/api/login</td>
+                                    <td class="px-6 py-4 text-sm text-gray-900">403</td>
+                                    <td class="px-6 py-4 text-sm text-gray-900">50ms</td>
+                                    <td class="px-6 py-4">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                            被拦截
+                                        </span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- 分页 -->
+                    <div id="logs-pagination" class="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+                        <div class="text-sm text-gray-700">
+                            显示 <span id="logs-start">1</span> 到 <span id="logs-end">10</span> 条，共 <span id="logs-total">0</span> 条记录
+                        </div>
+                        <div class="flex space-x-2" id="logs-pagination-buttons">
+                            <button id="logs-prev-btn" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50" disabled>上一页</button>
+                            <button class="px-3 py-1 bg-blue-600 text-white rounded text-sm">1</button>
+                            <button id="logs-next-btn" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">下一页</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 黑名单管理页面 -->
+            <div id="blacklist-page" class="page-content hidden">
+                <div class="flex items-center justify-between mb-8">
+                    <div>
+                        <h1 class="text-3xl font-bold text-gray-900">黑名单管理</h1>
+                        <p class="text-gray-600 mt-2">管理被禁止访问的IP地址</p>
+                    </div>
+                    <button id="add-blacklist-btn" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors">
+                        <i class="fas fa-plus"></i>
+                        <span>添加黑名单</span>
+                    </button>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+                    <div class="overflow-x-auto">
+                        <table class="w-full" id="blacklist-table">
+                            <thead class="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th class="px-6 py-4 text-left text-sm font-medium text-gray-900">IP地址</th>
+                                    <th class="px-6 py-4 text-left text-sm font-medium text-gray-900">原因</th>
+                                    <th class="px-6 py-4 text-left text-sm font-medium text-gray-900">过期时间</th>
+                                    <th class="px-6 py-4 text-left text-sm font-medium text-gray-900">创建时间</th>
+                                    <th class="px-6 py-4 text-left text-sm font-medium text-gray-900">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200" id="blacklist-table-body">
+                                <!-- 动态加载 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 白名单管理页面 -->
+            <div id="whitelist-page" class="page-content hidden">
+                <div class="flex items-center justify-between mb-8">
+                    <div>
+                        <h1 class="text-3xl font-bold text-gray-900">白名单管理</h1>
+                        <p class="text-gray-600 mt-2">管理允许访问的IP地址</p>
+                    </div>
+                    <button id="add-whitelist-btn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors">
+                        <i class="fas fa-plus"></i>
+                        <span>添加白名单</span>
+                    </button>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+                    <div class="overflow-x-auto">
+                        <table class="w-full" id="whitelist-table">
+                            <thead class="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th class="px-6 py-4 text-left text-sm font-medium text-gray-900">IP地址</th>
+                                    <th class="px-6 py-4 text-left text-sm font-medium text-gray-900">描述</th>
+                                    <th class="px-6 py-4 text-left text-sm font-medium text-gray-900">过期时间</th>
+                                    <th class="px-6 py-4 text-left text-sm font-medium text-gray-900">创建时间</th>
+                                    <th class="px-6 py-4 text-left text-sm font-medium text-gray-900">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200" id="whitelist-table-body">
+                                <!-- 动态加载 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+
+        </main>
+    </div>
+
+    <!-- 规则添加/编辑模态框 -->
+    <div id="rule-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full mx-4">
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex items-center justify-between">
+                    <h3 id="modal-title" class="text-lg font-semibold text-gray-900">添加规则</h3>
+                    <button class="modal-close text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="p-6">
+                <form id="rule-form" class="space-y-4">
+                    <div>
+                        <label for="rule-name" class="block text-sm font-medium text-gray-700 mb-2">规则名称</label>
+                        <input type="text" id="rule-name" name="ruleName" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label for="rule-pattern" class="block text-sm font-medium text-gray-700 mb-2">API路径模式</label>
+                        <input type="text" id="rule-pattern" name="apiPattern" required placeholder="例如: /api/user/* 或 /admin/**" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label for="qps-limit" class="block text-sm font-medium text-gray-700 mb-2">QPS限制</label>
+                        <input type="number" id="qps-limit" name="qpsLimit" value="100" min="1" max="10000" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label for="user-limit" class="block text-sm font-medium text-gray-700 mb-2">单用户限制（次/分钟）</label>
+                        <input type="number" id="user-limit" name="userLimit" value="60" min="1" max="1000" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label for="description" class="block text-sm font-medium text-gray-700 mb-2">描述</label>
+                        <textarea id="description" name="description" rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="p-6 border-t border-gray-200 flex justify-end space-x-3">
+                <button type="button" id="cancel-btn" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">取消</button>
+                <button type="submit" id="save-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 黑名单添加/编辑模态框 -->
+    <div id="blacklist-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center" style="display: none;">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full mx-4">
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex items-center justify-between">
+                    <h3 id="blacklist-modal-title" class="text-lg font-semibold text-gray-900">添加黑名单</h3>
+                    <button class="blacklist-modal-close text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="p-6">
+                <form id="blacklist-form" class="space-y-4">
+                    <input type="hidden" id="blacklist-id" name="id">
+                    <div>
+                        <label for="blacklist-ip" class="block text-sm font-medium text-gray-700 mb-2">IP地址</label>
+                        <input type="text" id="blacklist-ip" name="ipAddress" required placeholder="例如: 192.168.1.100" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                    </div>
+                    <div>
+                        <label for="blacklist-reason" class="block text-sm font-medium text-gray-700 mb-2">封禁原因</label>
+                        <textarea id="blacklist-reason" name="reason" rows="2" placeholder="请输入封禁原因" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 focus:border-red-500"></textarea>
+                    </div>
+                    <div>
+                        <label for="blacklist-expire" class="block text-sm font-medium text-gray-700 mb-2">过期时间（可选）</label>
+                        <input type="datetime-local" id="blacklist-expire" name="expireTime" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                    </div>
+                </form>
+            </div>
+            <div class="p-6 border-t border-gray-200 flex justify-end space-x-3">
+                <button type="button" id="blacklist-cancel-btn" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">取消</button>
+                <button type="submit" id="blacklist-save-btn" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 白名单添加/编辑模态框 -->
+    <div id="whitelist-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center" style="display: none;">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full mx-4">
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex items-center justify-between">
+                    <h3 id="whitelist-modal-title" class="text-lg font-semibold text-gray-900">添加白名单</h3>
+                    <button class="whitelist-modal-close text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="p-6">
+                <form id="whitelist-form" class="space-y-4">
+                    <input type="hidden" id="whitelist-id" name="id">
+                    <div>
+                        <label for="whitelist-ip" class="block text-sm font-medium text-gray-700 mb-2">IP地址</label>
+                        <input type="text" id="whitelist-ip" name="ipAddress" required placeholder="例如: 192.168.1.100" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500">
+                    </div>
+                    <div>
+                        <label for="whitelist-description" class="block text-sm font-medium text-gray-700 mb-2">描述</label>
+                        <textarea id="whitelist-description" name="description" rows="2" placeholder="请输入描述信息" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="p-6 border-t border-gray-200 flex justify-end space-x-3">
+                <button type="button" id="whitelist-cancel-btn" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">取消</button>
+                <button type="submit" id="whitelist-save-btn" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .nav-btn {
+            @apply px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors;
+        }
+        .nav-btn.active {
+            @apply bg-blue-100 text-blue-700;
+        }
+        .mobile-nav-btn {
+            @apply w-full text-left px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors;
+        }
+        .mobile-nav-btn.active {
+            @apply bg-blue-100 text-blue-700;
+        }
+        .page-content {
+            @apply block;
+        }
+        .page-content.hidden {
+            @apply hidden;
+        }
+    </style>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
