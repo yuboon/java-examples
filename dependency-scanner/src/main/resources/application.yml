@@ -1,0 +1,53 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: dependency-scanner
+  
+  # H2 数据库配置
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: 
+  
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  
+  # JdbcTemplate 配置
+  jdbc:
+    template:
+      query-timeout: 30
+
+# 漏洞扫描配置 (使用OSV.dev作为唯一数据源)
+vulnerability:
+  scan:
+    mode: online  # 扫描模式: online(在线), local(本地数据库), hybrid(混合)
+    timeout: 30   # 单个依赖扫描超时时间(秒)
+    parallel: true  # 是否启用并行扫描
+    retry:
+      max-attempts: 3  # 最大重试次数
+      delay: 1000     # 重试延迟(毫秒)
+
+# 日志配置
+logging:
+  level:
+    com.example.dependencyscanner: DEBUG
+    org.springframework.jdbc: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# 管理端点配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
