@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>热补丁管理器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card-shadow { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+        .hover-lift { transition: all 0.3s ease; }
+        .hover-lift:hover { transform: translateY(-2px); box-shadow: 0 8px 25px -8px rgba(0, 0, 0, 0.2); }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="gradient-bg text-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="text-center">
+                <h1 class="text-4xl font-bold mb-2">🔥 热补丁管理器</h1>
+                <p class="text-xl opacity-90">Spring Boot 线上紧急修复控制台</p>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- 统计卡片 -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-white rounded-xl card-shadow p-6 text-center hover-lift">
+                <div class="inline-flex items-center justify-center w-12 h-12 bg-blue-100 rounded-lg mb-4">
+                    <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14-7l-3 3m0-3L13 7"/>
+                    </svg>
+                </div>
+                <div class="text-3xl font-bold text-gray-900" id="totalPatches">0</div>
+                <div class="text-sm text-gray-500 mt-1">已加载补丁</div>
+            </div>
+            
+            <div class="bg-white rounded-xl card-shadow p-6 text-center hover-lift">
+                <div class="inline-flex items-center justify-center w-12 h-12 bg-green-100 rounded-lg mb-4">
+                    <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+                <div class="text-3xl font-bold text-gray-900" id="successCount">0</div>
+                <div class="text-sm text-gray-500 mt-1">成功次数</div>
+            </div>
+            
+            <div class="bg-white rounded-xl card-shadow p-6 text-center hover-lift">
+                <div class="inline-flex items-center justify-center w-12 h-12 bg-purple-100 rounded-lg mb-4">
+                    <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+                <div class="text-xl font-bold text-gray-900" id="lastLoadTime">--</div>
+                <div class="text-sm text-gray-500 mt-1">最后加载</div>
+            </div>
+        </div>
+
+        <!-- 消息显示区域 -->
+        <div id="message" class="mb-6"></div>
+
+        <!-- 加载补丁区域 -->
+        <div class="bg-white rounded-xl card-shadow p-6 mb-8">
+            <div class="flex items-center mb-6">
+                <div class="inline-flex items-center justify-center w-10 h-10 bg-blue-100 rounded-lg mr-3">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"/>
+                    </svg>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-900">📦 加载补丁</h2>
+            </div>
+            
+            <div class="space-y-4">
+                <!-- 补丁选择下拉框 -->
+                <div>
+                    <label for="patchSelector" class="block text-sm font-medium text-gray-700 mb-2">选择补丁</label>
+                    <div class="relative">
+                        <select id="patchSelector" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white">
+                            <option value="">正在扫描补丁目录...</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 或者手动输入 -->
+                <div class="border-t pt-4">
+                    <p class="text-sm text-gray-600 mb-3">或者手动输入补丁信息：</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="patchName" class="block text-sm font-medium text-gray-700 mb-2">补丁名称</label>
+                            <input type="text" id="patchName" placeholder="如: UserService" 
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                        </div>
+                        <div>
+                            <label for="patchVersion" class="block text-sm font-medium text-gray-700 mb-2">版本号</label>
+                            <input type="text" id="patchVersion" placeholder="如: 1.0.1" 
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 加载按钮 -->
+                <div class="flex justify-end pt-4">
+                    <button id="loadBtn" onclick="loadPatch()" 
+                        class="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        </svg>
+                        加载补丁
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 补丁列表区域 -->
+        <div class="bg-white rounded-xl card-shadow p-6">
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center">
+                    <div class="inline-flex items-center justify-center w-10 h-10 bg-green-100 rounded-lg mr-3">
+                        <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                        </svg>
+                    </div>
+                    <h2 class="text-2xl font-bold text-gray-900">📋 已加载补丁</h2>
+                </div>
+                <button onclick="refreshPatches()" 
+                    class="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors duration-200">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                    刷新列表
+                </button>
+            </div>
+            
+            <!-- 加载状态 -->
+            <div id="loading" class="hidden text-center py-12">
+                <div class="inline-flex items-center">
+                    <svg class="animate-spin -ml-1 mr-3 h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span class="text-lg text-gray-600">正在加载补丁列表...</span>
+                </div>
+            </div>
+            
+            <!-- 补丁列表 -->
+            <div id="patchList" class="space-y-4">
+                <!-- 补丁项目将在这里显示 -->
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // API 基础路径
+        const API_BASE = '/api/hotpatch';
+        
+        // 统计数据
+        let stats = {
+            total: 0,
+            success: 0,
+            lastLoad: null
+        };
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            scanPatchesDirectory();
+            refreshPatches();
+            updateStats();
+        });
+        
+        // 扫描补丁目录
+        async function scanPatchesDirectory() {
+            const selector = document.getElementById('patchSelector');
+            
+            try {
+                // 这里模拟扫描补丁目录的API调用
+                // 实际应该调用后端API来获取patches目录下的所有jar文件
+                const response = await fetch(`${API_BASE}/scan-patches`);
+                
+                if (response.ok) {
+                    const patches = await response.json();
+                    
+                    selector.innerHTML = '<option value="">请选择一个补丁</option>';
+                    patches.forEach(patch => {
+                        const option = document.createElement('option');
+                        option.value = JSON.stringify({name: patch.name, version: patch.version});
+                        option.textContent = `${patch.name} (${patch.version})`;
+                        selector.appendChild(option);
+                    });
+                } else {
+                    // 如果API不存在，使用模拟数据
+                    selector.innerHTML = `
+                        <option value="">请选择一个补丁</option>
+                        <option value='{"name":"StringUtils","version":"1.0.2"}'>StringUtils (1.0.2)</option>
+                        <option value='{"name":"UserService","version":"1.0.1"}'>UserService (1.0.1)</option>
+                    `;
+                }
+            } catch (error) {
+                // 使用模拟数据
+                selector.innerHTML = `
+                    <option value="">请选择一个补丁</option>
+                    <option value='{"name":"StringUtils","version":"1.0.2"}'>StringUtils (1.0.2)</option>
+                    <option value='{"name":"UserService","version":"1.0.1"}'>UserService (1.0.1)</option>
+                `;
+            }
+        }
+        
+        // 下拉框选择事件
+        document.getElementById('patchSelector').addEventListener('change', function() {
+            const selectedValue = this.value;
+            if (selectedValue) {
+                const patch = JSON.parse(selectedValue);
+                document.getElementById('patchName').value = patch.name;
+                document.getElementById('patchVersion').value = patch.version;
+            } else {
+                document.getElementById('patchName').value = '';
+                document.getElementById('patchVersion').value = '';
+            }
+        });
+        
+        // 显示消息
+        function showMessage(text, type = 'success') {
+            const messageDiv = document.getElementById('message');
+            let bgColor = type === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800';
+            let icon = type === 'success' ? 
+                '<svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>' :
+                '<svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
+            
+            messageDiv.innerHTML = `
+                <div class="border rounded-lg p-4 ${bgColor} mb-4">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            ${icon}
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm font-medium">${text}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // 3秒后自动隐藏
+            setTimeout(() => {
+                messageDiv.innerHTML = '';
+            }, 3000);
+        }
+        
+        // 加载补丁
+        async function loadPatch() {
+            const patchName = document.getElementById('patchName').value.trim();
+            const version = document.getElementById('patchVersion').value.trim();
+            
+            if (!patchName || !version) {
+                showMessage('请选择补丁或手动输入补丁名称和版本号', 'error');
+                return;
+            }
+            
+            const loadBtn = document.getElementById('loadBtn');
+            loadBtn.disabled = true;
+            loadBtn.innerHTML = `
+                <svg class="animate-spin -ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                加载中...
+            `;
+            
+            try {
+                const response = await fetch(`${API_BASE}/load`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `patchName=${encodeURIComponent(patchName)}&version=${encodeURIComponent(version)}`
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showMessage(`✅ ${result.message}`, 'success');
+                    stats.success++;
+                    stats.lastLoad = new Date().toLocaleTimeString();
+                    
+                    // 清空输入框和选择器
+                    document.getElementById('patchName').value = '';
+                    document.getElementById('patchVersion').value = '';
+                    document.getElementById('patchSelector').value = '';
+                    
+                    // 刷新列表
+                    refreshPatches();
+                    updateStats();
+                } else {
+                    showMessage(`❌ ${result.message}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`网络错误: ${error.message}`, 'error');
+            } finally {
+                loadBtn.disabled = false;
+                loadBtn.innerHTML = `
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                    加载补丁
+                `;
+            }
+        }
+        
+        // 刷新补丁列表
+        async function refreshPatches() {
+            const loading = document.getElementById('loading');
+            const patchList = document.getElementById('patchList');
+            
+            loading.classList.remove('hidden');
+            
+            try {
+                const response = await fetch(`${API_BASE}/list`);
+                const patches = await response.json();
+                
+                stats.total = patches.length;
+                updateStats();
+                
+                if (patches.length === 0) {
+                    patchList.innerHTML = `
+                        <div class="text-center py-16">
+                            <div class="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
+                                <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2M4 13h2m13-8V4a2 2 0 00-2-2H9a2 2 0 00-2 2v1M8 7V4a2 2 0 012-2h4a2 2 0 012 2v3"/>
+                                </svg>
+                            </div>
+                            <h3 class="text-lg font-medium text-gray-900 mb-2">暂无已加载的补丁</h3>
+                            <p class="text-gray-500">在上方选择补丁并点击"加载补丁"开始使用</p>
+                        </div>
+                    `;
+                } else {
+                    patchList.innerHTML = patches.map(patch => `
+                        <div class="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-6 hover-lift">
+                            <div class="flex items-start justify-between">
+                                <div class="flex-1">
+                                    <div class="flex items-center mb-3">
+                                        <div class="inline-flex items-center justify-center w-10 h-10 bg-blue-100 rounded-lg mr-3">
+                                            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"/>
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <h3 class="text-lg font-semibold text-gray-900">📦 ${patch.name}</h3>
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                v${patch.version}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="space-y-2 text-sm text-gray-600">
+                                        <div class="flex items-center">
+                                            <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                            </svg>
+                                            加载时间: ${new Date(patch.loadTime).toLocaleString()}
+                                        </div>
+                                        <div class="flex items-center">
+                                            <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                                            </svg>
+                                            类型: ${patch.patchType}
+                                        </div>
+                                        <div class="flex items-center">
+                                            <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                            </svg>
+                                            目标: ${patch.originalTarget}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <button onclick="rollbackPatch('${patch.name}')" 
+                                    class="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors duration-200">
+                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/>
+                                    </svg>
+                                    回滚补丁
+                                </button>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                patchList.innerHTML = `
+                    <div class="text-center py-16">
+                        <div class="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-4">
+                            <svg class="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-medium text-red-900 mb-2">加载失败</h3>
+                        <p class="text-red-600">❌ 加载补丁列表失败: ${error.message}</p>
+                    </div>
+                `;
+            } finally {
+                loading.classList.add('hidden');
+            }
+        }
+        
+        // 回滚补丁
+        async function rollbackPatch(patchName) {
+            if (!confirm(`确定要回滚补丁 "${patchName}" 吗？`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/rollback`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `patchName=${encodeURIComponent(patchName)}`
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showMessage(`✅ ${result.message}`, 'success');
+                    refreshPatches();
+                } else {
+                    showMessage(`❌ ${result.message}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`网络错误: ${error.message}`, 'error');
+            }
+        }
+        
+        // 更新统计信息
+        function updateStats() {
+            document.getElementById('totalPatches').textContent = stats.total;
+            document.getElementById('successCount').textContent = stats.success;
+            document.getElementById('lastLoadTime').textContent = stats.lastLoad || '--';
+        }
+        
+        // 键盘事件：回车加载补丁
+        document.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const target = e.target;
+                if (target.id === 'patchName' || target.id === 'patchVersion') {
+                    loadPatch();
+                }
+            }
+        });
+    </script>
+</body>
+</html>

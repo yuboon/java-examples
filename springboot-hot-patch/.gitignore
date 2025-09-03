@@ -1,0 +1,66 @@
+# Git 忽略文件配置
+
+# Maven 构建产物
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# IDE 文件
+.idea/
+*.iws
+*.iml
+*.ipr
+.vscode/
+*.code-workspace
+
+# 编译产物
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+
+# 日志文件
+*.log
+logs/
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+
+# 补丁文件
+patches/*.jar
+!patches/README.md
+
+# 临时文件
+*.tmp
+*.temp
+*.swp
+*~
+
+# Spring Boot
+.gradle
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# 数据库文件
+*.db
+*.h2.db
+
+# 配置文件（可能包含敏感信息）
+application-local.properties
+application-dev.properties
+application-prod.properties
+
+# 密钥文件
+*.key
+*.pem
+*.p12
+*.jks
+
+# 备份文件
+*.bak
+*.backup
