@@ -43,6 +43,7 @@ public class HotPatchLoader {
     private final Map<String, Class<?>> originalBeanTypes = new ConcurrentHashMap<>();  // 保存原始Bean类型
     private final Map<String, byte[]> originalClassBytecode = new ConcurrentHashMap<>();  // 保存原始类字节码
     private final Map<String, byte[]> originalMethodBytecode = new ConcurrentHashMap<>();  // 保存原始方法字节码
+    private final Map<String, PatchClassLoader> patchClassLoaders = new ConcurrentHashMap<>();  // 保存补丁类加载器用于真正卸载
     private final Instrumentation instrumentation;
     
     public HotPatchLoader(ConfigurableApplicationContext applicationContext, 
@@ -63,23 +64,48 @@ public class HotPatchLoader {
             return PatchResult.failed("热补丁功能未启用");
         }
         
+        // 检查补丁是否已经加载
+        if (loadedPatches.containsKey(patchName)) {
+            PatchInfo existingPatch = loadedPatches.get(patchName);
+            String existingVersion = existingPatch.getVersion();
+            
+            if (version.equals(existingVersion)) {
+                log.warn("补丁 {}:{} 已经加载，跳过重复操作", patchName, version);
+                return PatchResult.failed("补丁 " + patchName + ":" + version + " 已经加载，请先卸载后再重新加载");
+            } else {
+                log.warn("补丁 {} 已加载版本 {}，尝试加载新版本 {}，将先自动卸载旧版本", 
+                    patchName, existingVersion, version);
+                
+                // 自动卸载旧版本
+                PatchResult rollbackResult = rollbackPatch(patchName);
+                if (!rollbackResult.isSuccess()) {
+                    return PatchResult.failed("无法卸载已存在的补丁版本 " + existingVersion + ": " + rollbackResult.getMessage());
+                }
+                
+                log.info("已成功卸载旧版本 {}:{}，继续加载新版本", patchName, existingVersion);
+            }
+        }
+        
         try {
             // 1. 验证补丁文件
             File patchFile = validatePatchFile(patchName, version);
             
             // 2. 创建专用的类加载器
-            URLClassLoader patchClassLoader = createPatchClassLoader(patchFile);
+            PatchClassLoader patchClassLoader = createPatchClassLoader(patchFile);
             
             // 3. 加载补丁类
             Class<?> patchClass = loadPatchClass(patchClassLoader, patchName);
             
-            // 4. 获取补丁注解信息
+            // 4. 保存类加载器用于后续卸载
+            patchClassLoaders.put(patchName, patchClassLoader);
+            
+            // 5. 获取补丁注解信息
             HotPatch patchAnnotation = patchClass.getAnnotation(HotPatch.class);
             if (patchAnnotation == null) {
                 return PatchResult.failed("补丁类缺少 @HotPatch 注解");
             }
             
-            // 5. 根据补丁类型选择替换策略
+            // 6. 根据补丁类型选择替换策略
             PatchType patchType = patchAnnotation.type();
             switch (patchType) {
                 case SPRING_BEAN:
@@ -97,10 +123,15 @@ public class HotPatchLoader {
                     return PatchResult.failed("不支持的补丁类型: " + patchType);
             }
             
-            // 6. 记录补丁信息
+            // 7. 记录补丁信息
             PatchInfo patchInfo = new PatchInfo(patchName, version, 
                 patchClass, patchType, System.currentTimeMillis());
             loadedPatches.put(patchName, patchInfo);
+            
+            // 8. 验证补丁加载是否成功（特别是Spring Bean类型）
+            if (patchType == PatchType.SPRING_BEAN) {
+                verifyPatchLoading(patchInfo);
+            }
             
             log.info("热补丁 {}:{} ({}) 加载成功", patchName, version, patchType);
             return PatchResult.success("补丁加载成功");
@@ -146,6 +177,22 @@ public class HotPatchLoader {
             // 从已加载补丁列表中移除
             loadedPatches.remove(patchName);
             
+            // 清理补丁类加载器（确保类真正卸载）
+            PatchClassLoader patchClassLoader = patchClassLoaders.remove(patchName);
+            if (patchClassLoader != null) {
+                try {
+                    patchClassLoader.clearPatchClasses();
+                    patchClassLoader.close();
+                    log.info("✅ 已清理补丁类加载器: {}", patchName);
+                } catch (Exception e) {
+                    log.warn("清理补丁类加载器时出现异常: {}", e.getMessage());
+                }
+            }
+            
+            // 强制垃圾回收以清理类元数据
+            System.gc();
+            log.info("已触发垃圾回收以清理类缓存");
+            
             log.info("✅ 补丁 {} ({}) 回滚成功", patchName, patchInfo.getPatchType());
             return PatchResult.success("补丁回滚成功");
             
@@ -172,12 +219,16 @@ public class HotPatchLoader {
         return patchFile;
     }
     
-    private URLClassLoader createPatchClassLoader(File patchFile) throws MalformedURLException {
+    /**
+     * 创建专用的类加载器 - 增强版，支持真正的类隔离和卸载
+     */
+    private PatchClassLoader createPatchClassLoader(File patchFile) throws MalformedURLException {
         URL[] urls = {patchFile.toURI().toURL()};
-        return new URLClassLoader(urls, this.getClass().getClassLoader());
+        // 创建独立的类加载器，避免与父类加载器共享类缓存
+        return new PatchClassLoader(urls, Thread.currentThread().getContextClassLoader());
     }
     
-    private Class<?> loadPatchClass(URLClassLoader classLoader, String patchName) 
+    private Class<?> loadPatchClass(PatchClassLoader classLoader, String patchName) 
             throws ClassNotFoundException {
         // 尝试多种方式加载补丁类
         String[] possibleClassNames = {
@@ -315,6 +366,10 @@ public class HotPatchLoader {
                     try {
                         Object beanByType = beanFactory.getBean(originalBeanType);
                         log.info("✅ 按类型获取Bean成功: {} -> {}", originalBeanType.getName(), beanByType.getClass().getName());
+                        
+                        // 强制更新所有Bean中已注入的字段引用到新的补丁Bean
+                        updateInjectedFieldReferences(beanFactory, originalBeanType, patchBean);
+                        
                     } catch (Exception e) {
                         log.warn("⚠️ 按类型获取Bean失败: {}", e.getMessage());
                         
@@ -324,6 +379,9 @@ public class HotPatchLoader {
                             // 手动注册类型映射
                             defaultBeanFactory.registerResolvableDependency(originalBeanType, patchBean);
                             log.info("✅ 手动注册类型依赖映射: {} -> {}", originalBeanType.getName(), patchBean.getClass().getName());
+                            
+                            // 再次尝试更新字段引用
+                            updateInjectedFieldReferences(beanFactory, originalBeanType, patchBean);
                         }
                     }
                 }
@@ -900,7 +958,7 @@ public class HotPatchLoader {
             log.debug("补丁类 {} 包含 @Service 注解", patchClass.getName());
             // Spring会自动处理这些注解，我们主要确保Bean定义正确
         }
-        if (patchClass.isAnnotationPresent(org.springframework.stereotype.Component.class)) {
+        if (patchClass.isAnnotationPresent(Component.class)) {
             log.debug("补丁类 {} 包含 @Component 注解", patchClass.getName());
         }
         
@@ -931,7 +989,16 @@ public class HotPatchLoader {
             log.info("开始回滚Spring Bean: {} (类型: {})", beanName, 
                 originalBeanType != null ? originalBeanType.getName() : "未知");
             
-            // 1. 查找并清理所有可能的补丁Bean（包括自动注册的）
+            // === 第一阶段：彻底清理补丁类和相关缓存 ===
+            
+            // 1. 强制清理补丁类的类加载器
+            PatchClassLoader patchClassLoader = patchClassLoaders.get(patchInfo.getName());
+            if (patchClassLoader != null) {
+                patchClassLoader.clearPatchClasses();
+                log.info("已清理补丁类加载器缓存");
+            }
+            
+            // 2. 查找并清理所有可能的补丁Bean（包括自动注册的）
             String patchBeanName = getPatchBeanName(patchInfo.getPatchClass());
             Set<String> allPatchBeanNames = new HashSet<>();
             allPatchBeanNames.add(patchBeanName);
@@ -953,7 +1020,7 @@ public class HotPatchLoader {
             
             log.info("发现需要清理的补丁Bean: {}", allPatchBeanNames);
             
-            // 2. 清理所有补丁Bean
+            // 3. 彻底清理所有补丁Bean（包括单例缓存、Bean定义、类型映射）
             for (String patchName : allPatchBeanNames) {
                 if (beanFactory.containsSingleton(patchName)) {
                     beanFactory.destroySingleton(patchName);
@@ -965,11 +1032,13 @@ public class HotPatchLoader {
                 }
             }
             
-            // 3. 收集所有依赖该Bean的其他Bean（这些Bean需要重新实例化）
+            // === 第二阶段：清理原始Bean和依赖关系 ===
+            
+            // 4. 收集所有依赖该Bean的其他Bean（这些Bean需要重新实例化）
             Set<String> dependentBeans = findDependentBeans(beanFactory, beanName, originalBeanType);
             log.info("发现依赖Bean: {}", dependentBeans);
             
-            // 4. 销毁所有依赖的Bean实例（强制重新注入）
+            // 5. 销毁所有依赖的Bean实例（强制重新注入）
             for (String dependentBeanName : dependentBeans) {
                 if (beanFactory.containsSingleton(dependentBeanName)) {
                     beanFactory.destroySingleton(dependentBeanName);
@@ -977,40 +1046,57 @@ public class HotPatchLoader {
                 }
             }
             
-            // 5. 清理当前补丁Bean的类型依赖映射
+            // 6. 清理当前补丁Bean的类型依赖映射
             if (originalBeanType != null) {
                 try {
-                    beanFactory.registerResolvableDependency(originalBeanType, null);
+                    // 清理类型依赖映射
+                    clearResolvableDependency(beanFactory, originalBeanType);
                     log.info("已清理类型依赖映射: {}", originalBeanType.getName());
                 } catch (Exception e) {
                     log.debug("清理类型依赖映射时出现异常（可忽略）: {}", e.getMessage());
                 }
             }
             
-            // 6. 销毁当前的目标Bean实例（如果还存在）
+            // 7. 销毁当前的目标Bean实例（如果还存在）
             if (beanFactory.containsSingleton(beanName)) {
                 beanFactory.destroySingleton(beanName);
                 log.info("已销毁目标Bean实例: {}", beanName);
             }
             
-            // 7. 移除当前Bean定义（如果还存在）
+            // 8. 移除当前Bean定义（如果还存在）
             if (beanFactory.containsBeanDefinition(beanName)) {
                 beanFactory.removeBeanDefinition(beanName);
                 log.info("已移除目标Bean定义: {}", beanName);
             }
             
-            // 8. 恢复原始Bean定义
+            // === 第三阶段：强制清理所有Spring内部缓存 ===
+            
+            // 9. 清理Spring的内部缓存
+            clearSpringInternalCaches(beanFactory, beanName, originalBeanType);
+            
+            // === 第四阶段：恢复原始Bean定义 ===
+            
+            // 10. 恢复原始Bean定义
             if (originalBeanDefinitions.containsKey(beanName)) {
                 BeanDefinition originalDef = originalBeanDefinitions.get(beanName);
-                beanFactory.registerBeanDefinition(beanName, originalDef);
+                
+                // 创建一个全新的Bean定义实例，避免缓存问题
+                GenericBeanDefinition newOriginalDef = new GenericBeanDefinition();
+                newOriginalDef.setBeanClass(originalBeanType);
+                newOriginalDef.setScope(originalDef.getScope());
+                newOriginalDef.setLazyInit(originalDef.isLazyInit());
+                newOriginalDef.setPrimary(originalDef.isPrimary());
+                newOriginalDef.setAutowireMode(AbstractBeanDefinition.AUTOWIRE_BY_TYPE);
+                
+                beanFactory.registerBeanDefinition(beanName, newOriginalDef);
                 log.info("已恢复原始Bean定义: {}", beanName);
                 
-                // 9. 强制实例化恢复后的Bean
-                if (originalDef.isSingleton()) {
+                // 11. 强制实例化恢复后的Bean
+                if (newOriginalDef.isSingleton()) {
                     Object restoredBean = beanFactory.getBean(beanName);
                     log.info("已强制实例化恢复的Bean: {} -> {}", beanName, restoredBean.getClass().getName());
                     
-                    // 10. 重新注册类型依赖映射到恢复的Bean
+                    // 12. 重新注册类型依赖映射到恢复的Bean
                     if (originalBeanType != null) {
                         beanFactory.registerResolvableDependency(originalBeanType, restoredBean);
                         log.info("已重新注册类型依赖映射: {} -> {}", originalBeanType.getName(), restoredBean.getClass().getName());
@@ -1021,7 +1107,15 @@ public class HotPatchLoader {
                 return;
             }
             
-            // 11. 强制重新实例化所有依赖的Bean（确保它们使用新的Bean实例）
+            // === 第五阶段：强制更新所有已注入的字段引用 ===
+            
+            // 13. 获取新实例化的Bean
+            Object restoredBeanInstance = beanFactory.getBean(beanName);
+            
+            // 14. 强制更新所有Bean中已注入的字段引用
+            updateInjectedFieldReferences(beanFactory, originalBeanType, restoredBeanInstance);
+            
+            // 15. 强制重新实例化所有依赖的Bean（确保它们使用新的Bean实例）
             for (String dependentBeanName : dependentBeans) {
                 try {
                     if (beanFactory.containsBeanDefinition(dependentBeanName)) {
@@ -1036,16 +1130,18 @@ public class HotPatchLoader {
                 }
             }
             
-            // 12. 最终验证：检查回滚是否真正成功
+            // === 第六阶段：最终验证 ===
+            
+            // 14. 最终验证：检查回滚是否真正成功
             if (originalBeanType != null) {
                 try {
                     // 检查是否还有多个Bean
                     String[] beanNamesOfType = beanFactory.getBeanNamesForType(originalBeanType);
                     log.info("类型 {} 对应的Bean数量: {} - {}", originalBeanType.getName(), beanNamesOfType.length, 
-                        java.util.Arrays.toString(beanNamesOfType));
+                        Arrays.toString(beanNamesOfType));
                     
                     if (beanNamesOfType.length > 1) {
-                        log.error("❌ 回滚后仍有多个相同类型的Bean: {}", java.util.Arrays.toString(beanNamesOfType));
+                        log.error("❌ 回滚后仍有多个相同类型的Bean: {}", Arrays.toString(beanNamesOfType));
                         throw new RuntimeException("回滚失败：存在多个相同类型的Bean");
                     }
                     
@@ -1058,16 +1154,27 @@ public class HotPatchLoader {
                         log.error("❌ 回滚失败：获取的Bean仍然是补丁类型: {}", finalBean.getClass().getName());
                         throw new RuntimeException("回滚失败：Bean类型未恢复");
                     }
+                    
+                    // 测试原始Bean的功能是否已恢复
+                    // testOriginalBeanFunctionality(finalBean, originalBeanType);
+                    
                 } catch (Exception e) {
                     log.error("❌ 回滚验证失败: {}", e.getMessage());
                     throw new RuntimeException("回滚验证失败: " + e.getMessage());
                 }
             }
             
-            // 13. 清理回滚相关的缓存
+            // === 第七阶段：清理回滚相关的缓存 ===
+            
+            // 15. 清理回滚相关的缓存
             originalBeans.remove(beanName);
             originalBeanDefinitions.remove(beanName);
             originalBeanTypes.remove(beanName);
+            
+            // 16. 强制最后一次垃圾回收
+            System.gc();
+            Thread.sleep(100); // 给GC一些时间
+            log.info("已强制执行垃圾回收");
             
             log.info("✅ Spring Bean {} 已成功回滚到原始状态", beanName);
             
@@ -1318,9 +1425,9 @@ public class HotPatchLoader {
             }
         }
         
-        if (patchClass.isAnnotationPresent(org.springframework.stereotype.Component.class)) {
-            org.springframework.stereotype.Component componentAnnotation = 
-                patchClass.getAnnotation(org.springframework.stereotype.Component.class);
+        if (patchClass.isAnnotationPresent(Component.class)) {
+            Component componentAnnotation =
+                patchClass.getAnnotation(Component.class);
             if (StringUtils.hasText(componentAnnotation.value())) {
                 return componentAnnotation.value();
             }
@@ -1329,5 +1436,347 @@ public class HotPatchLoader {
         // 默认使用类名的小驼峰格式
         String className = patchClass.getSimpleName();
         return className.substring(0, 1).toLowerCase() + className.substring(1);
+    }
+    
+    /**
+     * 专用的补丁类加载器 - 支持真正的类卸载和重新加载
+     */
+    private static class PatchClassLoader extends URLClassLoader {
+        private final Map<String, Class<?>> loadedClasses = new ConcurrentHashMap<>();
+        
+        public PatchClassLoader(URL[] urls, ClassLoader parent) {
+            super(urls, parent);
+        }
+        
+        @Override
+        protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
+            synchronized (getClassLoadingLock(name)) {
+                // 检查类是否已经在当前类加载器中加载
+                Class<?> c = findLoadedClass(name);
+                if (c == null) {
+                    // 对于补丁相关的类，优先从当前类加载器加载，避免父类加载器的缓存
+                    if (name.contains("Patch") || name.contains("patch")) {
+                        try {
+                            c = findClass(name);
+                            loadedClasses.put(name, c);
+                            log.debug("通过补丁类加载器加载类: {}", name);
+                        } catch (ClassNotFoundException e) {
+                            // 如果找不到，则委托给父类加载器
+                            c = super.loadClass(name, false);
+                        }
+                    } else {
+                        // 非补丁类，使用标准的双亲委派机制
+                        c = super.loadClass(name, false);
+                    }
+                }
+                if (resolve) {
+                    resolveClass(c);
+                }
+                return c;
+            }
+        }
+        
+        /**
+         * 强制卸载指定的类
+         */
+        public void unloadClass(String className) {
+            loadedClasses.remove(className);
+            // 清理类加载器的内部缓存
+            try {
+                java.lang.reflect.Field classesField = ClassLoader.class.getDeclaredField("classes");
+                classesField.setAccessible(true);
+                @SuppressWarnings("unchecked")
+                Vector<Class<?>> classes = (Vector<Class<?>>) classesField.get(this);
+                classes.removeIf(clazz -> clazz.getName().equals(className));
+                log.debug("已从类加载器缓存中移除类: {}", className);
+            } catch (Exception e) {
+                log.debug("清理类加载器缓存失败: {}", e.getMessage());
+            }
+        }
+        
+        /**
+         * 清理所有已加载的补丁类
+         */
+        public void clearPatchClasses() {
+            Set<String> classesToRemove = new HashSet<>(loadedClasses.keySet());
+            loadedClasses.clear();
+            
+            try {
+                java.lang.reflect.Field classesField = ClassLoader.class.getDeclaredField("classes");
+                classesField.setAccessible(true);
+                @SuppressWarnings("unchecked")
+                Vector<Class<?>> classes = (Vector<Class<?>>) classesField.get(this);
+                classes.removeIf(clazz -> clazz.getName().contains("Patch"));
+                log.info("已清理补丁类缓存，移除类数量: {}", classesToRemove.size());
+            } catch (Exception e) {
+                log.debug("清理补丁类缓存失败: {}", e.getMessage());
+            }
+        }
+        
+        /**
+         * 获取已加载的补丁类列表
+         */
+        public Set<String> getLoadedPatchClasses() {
+            return new HashSet<>(loadedClasses.keySet());
+        }
+    }
+    
+    /**
+     * 清理Spring的内部缓存
+     */
+    private void clearSpringInternalCaches(DefaultListableBeanFactory beanFactory, String beanName, Class<?> beanType) {
+        try {
+            // 清理单例缓存
+            java.lang.reflect.Field singletonObjectsField = DefaultListableBeanFactory.class.getDeclaredField("singletonObjects");
+            singletonObjectsField.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> singletonObjects = (Map<String, Object>) singletonObjectsField.get(beanFactory);
+            singletonObjects.remove(beanName);
+            
+            // 清理早期单例对象缓存
+            java.lang.reflect.Field earlySingletonObjectsField = DefaultListableBeanFactory.class.getDeclaredField("earlySingletonObjects");
+            earlySingletonObjectsField.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> earlySingletonObjects = (Map<String, Object>) earlySingletonObjectsField.get(beanFactory);
+            earlySingletonObjects.remove(beanName);
+            
+            // 清理单例工厂缓存
+            java.lang.reflect.Field singletonFactoriesField = DefaultListableBeanFactory.class.getDeclaredField("singletonFactories");
+            singletonFactoriesField.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            Map<String, ?> singletonFactories = (Map<String, ?>) singletonFactoriesField.get(beanFactory);
+            singletonFactories.remove(beanName);
+            
+            // 清理类型缓存
+            if (beanType != null) {
+                java.lang.reflect.Field allBeanNamesByTypeField = DefaultListableBeanFactory.class.getDeclaredField("allBeanNamesByType");
+                allBeanNamesByTypeField.setAccessible(true);
+                @SuppressWarnings("unchecked")
+                Map<Class<?>, String[]> allBeanNamesByType = (Map<Class<?>, String[]>) allBeanNamesByTypeField.get(beanFactory);
+                allBeanNamesByType.remove(beanType);
+                
+                java.lang.reflect.Field singletonBeanNamesByTypeField = DefaultListableBeanFactory.class.getDeclaredField("singletonBeanNamesByType");
+                singletonBeanNamesByTypeField.setAccessible(true);
+                @SuppressWarnings("unchecked")
+                Map<Class<?>, String[]> singletonBeanNamesByType = (Map<Class<?>, String[]>) singletonBeanNamesByTypeField.get(beanFactory);
+                singletonBeanNamesByType.remove(beanType);
+            }
+            
+            log.debug("已清理Spring内部缓存");
+        } catch (Exception e) {
+            log.warn("清理Spring内部缓存失败: {}", e.getMessage());
+        }
+    }
+    
+    /**
+     * 清理可解析依赖映射
+     */
+    private void clearResolvableDependency(DefaultListableBeanFactory beanFactory, Class<?> dependencyType) {
+        try {
+            java.lang.reflect.Field resolvableDependenciesField = DefaultListableBeanFactory.class.getDeclaredField("resolvableDependencies");
+            resolvableDependenciesField.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            Map<Class<?>, Object> resolvableDependencies = (Map<Class<?>, Object>) resolvableDependenciesField.get(beanFactory);
+            resolvableDependencies.remove(dependencyType);
+            log.debug("已清理可解析依赖映射: {}", dependencyType.getName());
+        } catch (Exception e) {
+            log.warn("清理可解析依赖映射失败: {}", e.getMessage());
+        }
+    }
+    
+    /**
+     * 强制更新所有Bean中已注入的字段引用
+     */
+    private void updateInjectedFieldReferences(ConfigurableListableBeanFactory beanFactory,
+                                               Class<?> targetType, Object newInstance) {
+        try {
+            log.info("开始更新所有Bean中的字段引用: {} -> {}", 
+                targetType.getName(), newInstance.getClass().getName());
+            
+            // 获取所有Bean名称
+            String[] allBeanNames = beanFactory.getBeanDefinitionNames();
+            int updatedCount = 0;
+            
+            for (String beanName : allBeanNames) {
+                try {
+                    // 跳过目标Bean本身
+                    if (beanFactory.containsBean(beanName)) {
+                        Object bean = beanFactory.getSingleton(beanName);
+                        if (bean != null && bean != newInstance) {
+                            // 检查并更新该Bean中的字段
+                            boolean updated = updateFieldsInBean(bean, targetType, newInstance);
+                            if (updated) {
+                                updatedCount++;
+                                log.info("已更新Bean {} 中的字段引用", beanName);
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    log.debug("更新Bean {} 字段引用时出现异常: {}", beanName, e.getMessage());
+                }
+            }
+            
+            log.info("✅ 字段引用更新完成，共更新了 {} 个Bean", updatedCount);
+            
+        } catch (Exception e) {
+            log.error("更新字段引用失败", e);
+        }
+    }
+    
+    /**
+     * 更新单个Bean中的字段引用
+     */
+    private boolean updateFieldsInBean(Object bean, Class<?> targetType, Object newInstance) {
+        boolean updated = false;
+        
+        try {
+            Class<?> beanClass = bean.getClass();
+            
+            // 获取所有字段，包括继承的字段
+            java.lang.reflect.Field[] fields = beanClass.getDeclaredFields();
+            
+            for (java.lang.reflect.Field field : fields) {
+                try {
+                    // 检查字段类型是否匹配
+                    if (targetType.isAssignableFrom(field.getType())) {
+                        field.setAccessible(true);
+                        Object currentValue = field.get(bean);
+                        
+                        // 如果当前值不是新实例，则更新它
+                        if (currentValue != null && currentValue != newInstance) {
+                            field.set(bean, newInstance);
+                            updated = true;
+                            log.debug("更新字段 {}.{}: {} -> {}", 
+                                beanClass.getSimpleName(), field.getName(),
+                                currentValue.getClass().getName(), 
+                                newInstance.getClass().getName());
+                        }
+                    }
+                } catch (Exception e) {
+                    log.debug("更新字段 {}.{} 时出现异常: {}", 
+                        beanClass.getSimpleName(), field.getName(), e.getMessage());
+                }
+            }
+            
+            // 也检查父类的字段
+            Class<?> superClass = beanClass.getSuperclass();
+            while (superClass != null && superClass != Object.class) {
+                java.lang.reflect.Field[] superFields = superClass.getDeclaredFields();
+                for (java.lang.reflect.Field field : superFields) {
+                    try {
+                        if (targetType.isAssignableFrom(field.getType())) {
+                            field.setAccessible(true);
+                            Object currentValue = field.get(bean);
+                            
+                            if (currentValue != null && currentValue != newInstance) {
+                                field.set(bean, newInstance);
+                                updated = true;
+                                log.debug("更新父类字段 {}.{}: {} -> {}", 
+                                    superClass.getSimpleName(), field.getName(),
+                                    currentValue.getClass().getName(), 
+                                    newInstance.getClass().getName());
+                            }
+                        }
+                    } catch (Exception e) {
+                        log.debug("更新父类字段 {}.{} 时出现异常: {}", 
+                            superClass.getSimpleName(), field.getName(), e.getMessage());
+                    }
+                }
+                superClass = superClass.getSuperclass();
+            }
+            
+        } catch (Exception e) {
+            log.debug("检查Bean {} 字段时出现异常: {}", bean.getClass().getName(), e.getMessage());
+        }
+        
+        return updated;
+    }
+    
+    /**
+     * 验证补丁加载是否成功
+     */
+    private void verifyPatchLoading(PatchInfo patchInfo) {
+        try {
+            HotPatch annotation = patchInfo.getPatchClass().getAnnotation(HotPatch.class);
+            String beanName = annotation.originalBean();
+            
+            if (!StringUtils.hasText(beanName)) {
+                log.warn("无法验证补丁加载：缺少Bean名称");
+                return;
+            }
+            
+            DefaultListableBeanFactory beanFactory = (DefaultListableBeanFactory) applicationContext.getBeanFactory();
+            Class<?> originalBeanType = originalBeanTypes.get(beanName);
+            
+            log.info("🔍 验证补丁加载状态: {}", beanName);
+            
+            // 1. 验证Bean容器中的实例
+            Object beanByName = beanFactory.getBean(beanName);
+            log.info("按名称获取Bean: {} -> {}", beanName, beanByName.getClass().getName());
+            
+            if (originalBeanType != null) {
+                Object beanByType = beanFactory.getBean(originalBeanType);
+                log.info("按类型获取Bean: {} -> {}", originalBeanType.getName(), beanByType.getClass().getName());
+                
+                // 验证是否是补丁类型
+                boolean isPatchType = beanByType.getClass().getName().contains("Patch");
+                log.info("Bean类型验证: {} (是否为补丁类型: {})", 
+                    beanByType.getClass().getName(), isPatchType);
+                
+                if (isPatchType) {
+                    // 测试补丁功能
+                    // testPatchFunctionality(beanByType, originalBeanType);
+                } else {
+                    log.warn("⚠️ 补丁加载验证失败：Bean类型不是补丁类型");
+                }
+            }
+            
+        } catch (Exception e) {
+            log.error("验证补丁加载失败", e);
+        }
+    }
+    
+    /**
+     * 测试补丁功能是否正常
+     */
+    private void testPatchFunctionality(Object bean, Class<?> beanType) {
+        try {
+            // 特殊处理 UserService 的测试
+            if (beanType.getSimpleName().equals("UserService")) {
+                java.lang.reflect.Method getUserInfoMethod = beanType.getMethod("getUserInfo", Long.class);
+                Object result = getUserInfoMethod.invoke(bean, 3L);
+                
+                // 补丁版本 UserService 对于未知用户ID应该返回 "未知用户"
+                if ("未知用户".equals(result)) {
+                    log.info("✅ 补丁功能测试通过: 未知用户ID返回'未知用户'（补丁行为）");
+                } else {
+                    log.warn("⚠️ 补丁功能测试异常: 未知用户ID返回 '{}' 而非'未知用户'", result);
+                }
+            }
+        } catch (Exception e) {
+            log.debug("补丁功能测试失败: {}", e.getMessage());
+        }
+    }
+    
+    /**
+     * 测试原始Bean的功能是否已恢复
+     */
+    private void testOriginalBeanFunctionality(Object bean, Class<?> beanType) {
+        try {
+            // 特殊处理 UserService 的测试
+            if (beanType.getSimpleName().equals("UserService")) {
+                java.lang.reflect.Method getUserInfoMethod = beanType.getMethod("getUserInfo", Long.class);
+                Object result = getUserInfoMethod.invoke(bean, 3L);
+                
+                // 原始 UserService 对于未知用户ID应该返回 null
+                if (result == null) {
+                    log.info("✅ 原始Bean功能测试通过: 未知用户ID返回null（原始行为）");
+                } else {
+                    log.warn("⚠️ 原始Bean功能测试异常: 未知用户ID返回 '{}' 而非null", result);
+                }
+            }
+        } catch (Exception e) {
+            log.debug("原始Bean功能测试失败: {}", e.getMessage());
+        }
     }
 }
