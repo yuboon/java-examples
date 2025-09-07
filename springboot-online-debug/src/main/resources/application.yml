@@ -1,0 +1,17 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: online-debug-tool
+  
+  # 开发环境配置
+  profiles:
+    active: dev
+
+logging:
+  level:
+    com.example.onlinedebug: DEBUG
+    net.bytebuddy: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
