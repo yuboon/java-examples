@@ -1,0 +1,29 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: springboot-api-dashboard
+  
+  # AOP configuration
+  aop:
+    auto: true
+    proxy-target-class: true
+
+# Logging configuration
+logging:
+  level:
+    com.example.dashboard: INFO
+    org.springframework.aop: DEBUG
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+
+# Application specific properties
+dashboard:
+  metrics:
+    cleanup-interval: 300000  # 5 minutes in milliseconds
+    max-age: 3600000         # 1 hour in milliseconds
+    debug-enabled: false
