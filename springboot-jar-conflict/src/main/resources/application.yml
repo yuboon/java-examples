@@ -1,0 +1,126 @@
+spring:
+  application:
+    name: jar-conflict-detector
+server:
+  port: 8080
+
+scanner:
+  mode: auto
+  exclude-patterns:
+    - "**/*Test.class"
+    - "**/test-classes/**"
+    - "**/target/test-classes/**"
+  include-system-jars: false
+
+# 冲突建议配置 - 完全可配置的规则引擎
+conflict:
+  advisor:
+    default-advice: |
+      检测到依赖冲突。建议：
+      1. 使用 mvn dependency:tree 分析依赖关系
+      2. 使用 <exclusion> 排除冲突依赖
+      3. 在dependencyManagement中统一版本管理
+      4. 优先使用Spring Boot的版本管理
+    
+    # 建议规则配置
+    rules:
+      slf4j-logging:
+        patterns:
+          - ".*slf4j.*"
+          - ".*logback.*" 
+          - ".*log4j.*"
+        severity: HIGH
+        advice: |
+          日志框架冲突。
+          当前冲突：${className}
+          涉及JAR包：${jarList}
+          
+          建议解决方案：
+          1. 在pom.xml中排除多余的日志实现
+          2. 只保留一个日志实现（推荐logback-classic）
+          3. 使用spring-boot-starter-logging统一管理
+          4. 排除示例：
+             <exclusion>
+               <groupId>org.slf4j</groupId>
+               <artifactId>slf4j-simple</artifactId>
+             </exclusion>
+      
+      database-driver:
+        patterns:
+          - ".*mysql.*"
+          - ".*postgresql.*"
+          - ".*Driver.*"
+          - ".*jdbc.*"
+        severity: CRITICAL
+        advice: |
+          数据库驱动冲突。
+          当前冲突：${className}
+          版本：${versions}
+          
+          建议解决方案：
+          1. 统一数据库驱动版本
+          2. 检查是否同时引入了不同的驱动包
+          3. 排除旧版本驱动，保留最新版本
+          4. 使用Spring Boot管理的驱动版本
+      
+      jackson-json:
+        patterns:
+          - ".*jackson.*"
+        severity: MEDIUM
+        advice: |
+          Jackson JSON库冲突。
+          当前冲突类：${className}
+          冲突JAR包数量：${jarCount}
+          
+          建议解决方案：
+          1. 统一Jackson版本（建议使用Spring Boot管理的版本）
+          2. 排除第三方库中的jackson依赖
+          3. 使用spring-boot-starter-json
+          4. 在dependencyManagement中统一版本
+      
+      spring-framework:
+        patterns:
+          - ".*springframework.*"
+          - ".*spring-.*"
+        severity: HIGH
+        advice: |
+          Spring框架版本冲突。
+          当前版本：${versions}
+          涉及JAR：${jars}
+          
+          建议解决方案：
+          1. 使用Spring Boot的版本管理
+          2. 在dependencyManagement中统一Spring版本
+          3. 排除第三方库中的Spring依赖
+      
+      apache-commons:
+        patterns:
+          - ".*apache.*"
+          - ".*httpclient.*"
+          - ".*httpcore.*"
+        severity: MEDIUM
+        advice: |
+          Apache组件版本冲突。
+          冲突类：${className}
+          
+          建议解决方案：
+          1. 使用dependencyManagement统一版本
+          2. 排除传递依赖中的旧版本
+          3. 考虑迁移到Spring的替代方案
+    
+    # 严重程度规则配置
+    severity-rules:
+      - patterns: [".*logger.*", ".*slf4j.*", ".*driver.*", ".*datasource.*"]
+        severity: CRITICAL
+        conflict-types: [CLASS_DUPLICATE, VERSION_CONFLICT]
+      
+      - patterns: [".*spring.*", ".*hibernate.*", ".*jackson.*"]
+        severity: HIGH
+        conflict-types: [VERSION_CONFLICT]
+      
+      - min-jar-count: 4
+        severity: MEDIUM
+        conflict-types: [CLASS_DUPLICATE]
+      
+      - patterns: [".*test.*", ".*junit.*"]
+        severity: LOW

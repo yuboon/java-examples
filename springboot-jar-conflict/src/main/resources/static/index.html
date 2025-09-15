@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jar包冲突检测报告</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'severity-critical': '#dc2626',
+                        'severity-high': '#ea580c',
+                        'severity-medium': '#ca8a04',
+                        'severity-low': '#65a30d'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <div class="bg-white shadow">
+        <div class="max-w-7xl mx-auto px-4 py-6">
+            <div class="flex items-center justify-between">
+                <h1 class="text-3xl font-bold text-gray-900">Jar包冲突检测工具</h1>
+                <button id="scanBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+                    开始扫描
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-8 max-w-sm mx-4">
+            <div class="flex items-center space-x-4">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <div class="text-lg font-medium text-gray-900">扫描中...</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Summary Cards -->
+        <div id="summaryCards" class="hidden grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <div class="p-2 bg-blue-100 rounded-lg">
+                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-500">总Jar包数</p>
+                        <p id="totalJars" class="text-2xl font-bold text-gray-900">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <div class="p-2 bg-green-100 rounded-lg">
+                        <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-500">总类数量</p>
+                        <p id="totalClasses" class="text-2xl font-bold text-gray-900">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <div class="p-2 bg-red-100 rounded-lg">
+                        <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.864-.833-2.634 0L4.18 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-500">冲突数量</p>
+                        <p id="conflictCount" class="text-2xl font-bold text-gray-900">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <div class="p-2 bg-purple-100 rounded-lg">
+                        <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-500">扫描耗时</p>
+                        <p id="scanTime" class="text-2xl font-bold text-gray-900">-</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Severity Distribution -->
+        <div id="severityCard" class="hidden bg-white rounded-lg shadow mb-8">
+            <div class="p-6 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">严重程度分布</h3>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-red-600" id="criticalCount">0</div>
+                        <div class="text-sm text-gray-500">严重</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-orange-600" id="highCount">0</div>
+                        <div class="text-sm text-gray-500">高</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-yellow-600" id="mediumCount">0</div>
+                        <div class="text-sm text-gray-500">中</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-green-600" id="lowCount">0</div>
+                        <div class="text-sm text-gray-500">低</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Conflicts Table -->
+        <div id="conflictsCard" class="hidden bg-white rounded-lg shadow">
+            <div class="p-6 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">冲突详情</h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">类名/Jar包名</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">冲突类型</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">严重程度</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">涉及Jar包</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">修复建议</th>
+                        </tr>
+                    </thead>
+                    <tbody id="conflictsTableBody" class="bg-white divide-y divide-gray-200">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- No Conflicts Message -->
+        <div id="noConflictsCard" class="hidden bg-white rounded-lg shadow p-8 text-center">
+            <div class="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+            </div>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">太棒了！</h3>
+            <p class="text-gray-500">没有检测到任何Jar包冲突</p>
+        </div>
+
+        <!-- Initial State -->
+        <div id="initialState" class="bg-white rounded-lg shadow p-8 text-center">
+            <div class="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                </svg>
+            </div>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">Jar包冲突检测工具</h3>
+            <p class="text-gray-500 mb-6">点击上方"开始扫描"按钮，检测当前应用的Jar包冲突</p>
+            <div class="bg-gray-50 rounded-lg p-4 text-left max-w-2xl mx-auto">
+                <h4 class="font-medium text-gray-900 mb-2">功能特性：</h4>
+                <ul class="text-sm text-gray-600 space-y-1">
+                    <li>• 扫描运行时加载的所有Jar包</li>
+                    <li>• 检测类重复冲突</li>
+                    <li>• 检测版本冲突</li>
+                    <li>• 智能分析严重程度</li>
+                    <li>• 提供针对性修复建议</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const scanBtn = document.getElementById('scanBtn');
+        const loading = document.getElementById('loading');
+        const initialState = document.getElementById('initialState');
+        const summaryCards = document.getElementById('summaryCards');
+        const severityCard = document.getElementById('severityCard');
+        const conflictsCard = document.getElementById('conflictsCard');
+        const noConflictsCard = document.getElementById('noConflictsCard');
+        const conflictsTableBody = document.getElementById('conflictsTableBody');
+
+        scanBtn.addEventListener('click', async () => {
+            showLoading();
+            
+            try {
+                const response = await fetch('/api/scan');
+                const data = await response.json();
+                displayResults(data);
+            } catch (error) {
+                console.error('扫描失败:', error);
+                hideLoading();
+                alert('扫描失败，请检查网络连接或稍后重试');
+            }
+        });
+
+        function showLoading() {
+            loading.classList.remove('hidden');
+        }
+
+        function hideLoading() {
+            loading.classList.add('hidden');
+        }
+
+        function displayResults(data) {
+            hideLoading();
+            initialState.classList.add('hidden');
+            
+            // 显示汇总信息
+            summaryCards.classList.remove('hidden');
+            document.getElementById('totalJars').textContent = data.summary.totalJars;
+            document.getElementById('totalClasses').textContent = data.summary.totalClasses;
+            document.getElementById('conflictCount').textContent = data.summary.conflictCount;
+            document.getElementById('scanTime').textContent = data.scanTimeMs + 'ms';
+
+            // 显示严重程度分布
+            severityCard.classList.remove('hidden');
+            document.getElementById('criticalCount').textContent = data.summary.criticalConflicts;
+            document.getElementById('highCount').textContent = data.summary.highConflicts;
+            document.getElementById('mediumCount').textContent = data.summary.mediumConflicts;
+            document.getElementById('lowCount').textContent = data.summary.lowConflicts;
+
+            // 显示冲突详情
+            if (data.conflicts && data.conflicts.length > 0) {
+                conflictsCard.classList.remove('hidden');
+                displayConflicts(data.conflicts);
+            } else {
+                noConflictsCard.classList.remove('hidden');
+            }
+        }
+
+        function displayConflicts(conflicts) {
+            conflictsTableBody.innerHTML = '';
+            
+            conflicts.forEach(conflict => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50';
+                
+                const severityColor = getSeverityColor(conflict.severity);
+                const conflictTypeText = getConflictTypeText(conflict.type);
+                const jarNames = conflict.conflictingJars.map(jar => `${jar.name} (${jar.version})`).join('<br>');
+                
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        ${conflict.className}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        ${conflictTypeText}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ${severityColor}">
+                            ${getSeverityText(conflict.severity)}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-500 max-w-xs">
+                        ${jarNames}
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-500 max-w-md">
+                        <div class="whitespace-pre-wrap">${conflict.advice || '暂无建议'}</div>
+                    </td>
+                `;
+                
+                conflictsTableBody.appendChild(row);
+            });
+        }
+
+        function getSeverityColor(severity) {
+            switch (severity) {
+                case 'CRITICAL': return 'bg-red-100 text-red-800';
+                case 'HIGH': return 'bg-orange-100 text-orange-800';
+                case 'MEDIUM': return 'bg-yellow-100 text-yellow-800';
+                case 'LOW': return 'bg-green-100 text-green-800';
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        }
+
+        function getSeverityText(severity) {
+            switch (severity) {
+                case 'CRITICAL': return '严重';
+                case 'HIGH': return '高';
+                case 'MEDIUM': return '中';
+                case 'LOW': return '低';
+                default: return '未知';
+            }
+        }
+
+        function getConflictTypeText(type) {
+            switch (type) {
+                case 'CLASS_DUPLICATE': return '类重复';
+                case 'VERSION_CONFLICT': return '版本冲突';
+                case 'JAR_DUPLICATE': return 'Jar重复';
+                default: return '未知';
+            }
+        }
+    </script>
+</body>
+</html>
