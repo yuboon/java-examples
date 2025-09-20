@@ -1,0 +1,1676 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API 文档工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .code-block {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .method-get { @apply bg-green-100 text-green-800 border-green-200; }
+        .method-post { @apply bg-blue-100 text-blue-800 border-blue-200; }
+        .method-put { @apply bg-yellow-100 text-yellow-800 border-yellow-200; }
+        .method-delete { @apply bg-red-100 text-red-800 border-red-200; }
+        .method-patch { @apply bg-purple-100 text-purple-800 border-purple-200; }
+
+        /* API状态颜色样式 */
+        .status-success {
+            @apply bg-green-100 text-green-800 border border-green-200;
+        }
+        .status-info {
+            @apply bg-blue-100 text-blue-800 border border-blue-200;
+        }
+        .status-warning {
+            @apply bg-yellow-100 text-yellow-800 border border-yellow-200;
+        }
+        .status-danger {
+            @apply bg-red-100 text-red-800 border border-red-200;
+        }
+
+        /* API状态徽章样式增强 */
+        .status-badge {
+            font-weight: 500;
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.375rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        /* 为不同状态添加图标 */
+        .status-success::before { content: "✅"; }
+        .status-info::before { content: "🧪"; }
+        .status-warning::before { content: "🚧"; }
+        .status-danger::before { content: "⚠️"; }
+
+        .sidebar-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .sidebar-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .sidebar-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 2px;
+        }
+
+        .sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        .group-toggle {
+            transition: transform 0.2s ease;
+            display: inline-block;
+            user-select: none;
+        }
+
+        .group-toggle.expanded {
+            transform: rotate(90deg);
+        }
+
+        .group-apis {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+
+        .group-apis.expanded {
+            max-height: 2000px;
+        }
+
+        .group-header:hover {
+            background-color: #f8fafc;
+        }
+
+        .api-path {
+            word-break: break-all;
+            overflow-wrap: break-word;
+            line-height: 1.3;
+        }
+
+        .api-path-short {
+            display: block;
+        }
+
+        .api-path-full {
+            display: none;
+        }
+
+        .api-item:hover .api-path-short {
+            display: none;
+        }
+
+        .api-item:hover .api-path-full {
+            display: block;
+        }
+
+        .path-tooltip {
+            position: relative;
+        }
+
+        .path-tooltip:hover::after {
+            content: attr(data-full-path);
+            position: absolute;
+            left: 0;
+            top: 100%;
+            z-index: 1000;
+            background: #1f2937;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            white-space: nowrap;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            max-width: 300px;
+            word-break: break-all;
+            white-space: pre-wrap;
+        }
+
+        .api-item-compact {
+            transition: all 0.2s ease;
+        }
+
+        .api-item-compact:hover {
+            transform: translateX(4px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans">
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b border-gray-200 fixed top-0 left-0 right-0 z-50">
+        <div class="flex items-center justify-between px-6 py-3">
+            <div class="flex items-center space-x-4">
+                <h1 class="text-xl font-bold text-gray-900">🔧 API文档工具</h1>
+                <div class="hidden md:flex items-center space-x-4">
+                    <input type="text" id="search-input" placeholder="搜索API..."
+                           class="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <select id="environment-select" class="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="all">所有环境</option>
+                        <option value="development">开发环境</option>
+                        <option value="test">测试环境</option>
+                        <option value="production">生产环境</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex items-center space-x-4">
+                <button id="theme-toggle" class="p-2 text-gray-500 hover:text-gray-700 focus:outline-none">
+                    <span class="dark:hidden">🌙</span>
+                    <span class="hidden dark:inline">☀️</span>
+                </button>
+                <button id="refresh-btn" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                    刷新
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="flex mt-16">
+        <!-- Sidebar -->
+        <aside class="w-80 bg-white shadow-sm border-r border-gray-200 fixed left-0 top-16 bottom-0 overflow-y-auto sidebar-scrollbar">
+            <div class="p-4">
+                <!-- Quick Stats -->
+                <div class="mb-6 p-3 bg-gray-50 rounded-lg">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="text-sm text-gray-600">API统计</div>
+                        <div class="flex space-x-1">
+                            <button id="expand-all" class="text-xs text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50" title="展开所有分组">
+                                ↓
+                            </button>
+                            <button id="collapse-all" class="text-xs text-gray-600 hover:text-gray-800 px-2 py-1 rounded hover:bg-gray-50" title="折叠所有分组">
+                                ↑
+                            </button>
+                        </div>
+                    </div>
+                    <div class="flex justify-between text-xs">
+                        <span>总计: <span id="total-apis" class="font-semibold">0</span></span>
+                        <span>分组: <span id="total-groups" class="font-semibold">0</span></span>
+                    </div>
+                </div>
+
+                <!-- API Groups -->
+                <div id="api-groups">
+                    <!-- Groups will be loaded here -->
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 ml-80 p-6">
+            <!-- Welcome Message -->
+            <div id="welcome-message" class="text-center py-12">
+                <div class="text-6xl mb-4">🚀</div>
+                <h2 class="text-2xl font-bold text-gray-900 mb-2">欢迎使用API文档工具</h2>
+                <p class="text-gray-600 mb-6">轻量级 • 零配置 • 开箱即用</p>
+                <div class="flex justify-center space-x-4">
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                        <div class="text-sm text-gray-500">🎯</div>
+                        <div class="text-lg font-semibold text-gray-900">自动解析</div>
+                        <div class="text-sm text-gray-600">基于注解智能生成</div>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                        <div class="text-sm text-gray-500">⚡</div>
+                        <div class="text-lg font-semibold text-gray-900">快速测试</div>
+                        <div class="text-sm text-gray-600">在线API测试</div>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                        <div class="text-sm text-gray-500">🎨</div>
+                        <div class="text-lg font-semibold text-gray-900">现代界面</div>
+                        <div class="text-sm text-gray-600">简洁美观的设计</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- API Detail -->
+            <div id="api-detail" class="hidden">
+                <!-- API Header -->
+                <div id="api-header" class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+                    <!-- Content will be populated by JavaScript -->
+                </div>
+
+                <!-- API Tabs -->
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                    <div class="border-b border-gray-200">
+                        <nav class="flex space-x-8 px-6">
+                            <button class="api-tab py-4 px-1 border-b-2 font-medium text-sm border-blue-500 text-blue-600" data-tab="documentation">
+                                📄 文档
+                            </button>
+                            <button class="api-tab py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="testing">
+                                🧪 测试
+                            </button>
+                            <button class="api-tab py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="examples">
+                                📋 示例
+                            </button>
+                        </nav>
+                    </div>
+
+                    <!-- Tab Content -->
+                    <div class="p-6">
+                        <!-- Documentation Tab -->
+                        <div id="tab-documentation" class="tab-content">
+                            <div id="api-documentation">
+                                <!-- Documentation content -->
+                            </div>
+                        </div>
+
+                        <!-- Testing Tab -->
+                        <div id="tab-testing" class="tab-content hidden">
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <!-- Request Configuration -->
+                                <div>
+                                    <h3 class="text-lg font-semibold text-gray-900 mb-4">🎯 请求配置</h3>
+
+                                    <!-- Headers -->
+                                    <div class="mb-4">
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Headers</label>
+                                        <div id="headers-container">
+                                            <!-- Headers will be added dynamically -->
+                                        </div>
+                                        <button id="add-header" class="text-sm text-blue-600 hover:text-blue-800">+ 添加Header</button>
+                                    </div>
+
+                                    <!-- Request Body -->
+                                    <div id="request-body-section" class="mb-4">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <label class="block text-sm font-medium text-gray-700">Request Body</label>
+                                            <button id="generate-example-btn" class="text-sm text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50 flex items-center">
+                                                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"></path>
+                                                </svg>
+                                                生成示例
+                                            </button>
+                                        </div>
+                                        <textarea id="request-body" rows="8"
+                                                  class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm code-block"
+                                                  placeholder="请求体JSON"></textarea>
+                                    </div>
+
+                                    <!-- Parameters -->
+                                    <div id="parameters-section" class="mb-4">
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">参数</label>
+                                        <div id="parameters-container">
+                                            <!-- Parameters will be populated -->
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Request Preview & Response -->
+                                <div>
+                                    <h3 class="text-lg font-semibold text-gray-900 mb-4">📋 请求预览</h3>
+
+                                    <!-- Request Preview -->
+                                    <div class="mb-4">
+                                        <pre id="request-preview" class="bg-gray-50 p-4 rounded-md text-sm code-block border border-gray-200"></pre>
+                                    </div>
+
+                                    <!-- Send Button -->
+                                    <div class="mb-4">
+                                        <button id="send-request" class="w-full px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                                            🚀 发送请求
+                                        </button>
+                                    </div>
+
+                                    <!-- Response -->
+                                    <div id="response-section" class="hidden">
+                                        <h4 class="text-md font-semibold text-gray-900 mb-2">📊 响应结果</h4>
+
+                                        <!-- Response Status -->
+                                        <div id="response-status" class="mb-3 p-3 rounded-md">
+                                            <!-- Status will be populated -->
+                                        </div>
+
+                                        <!-- Response Body -->
+                                        <div class="mb-4">
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Response Body</label>
+                                            <pre id="response-body" class="bg-gray-50 p-4 rounded-md text-sm code-block border border-gray-200 max-h-96 overflow-y-auto"></pre>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Examples Tab -->
+                        <div id="tab-examples" class="tab-content hidden">
+                            <div id="api-examples">
+                                <!-- Examples content -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white p-6 rounded-lg shadow-lg">
+            <div class="flex items-center space-x-3">
+                <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                <span class="text-gray-700">加载中...</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let currentApiDoc = null;
+        let selectedApi = null;
+
+        // DOM元素
+        const searchInput = document.getElementById('search-input');
+        const environmentSelect = document.getElementById('environment-select');
+        const refreshBtn = document.getElementById('refresh-btn');
+        const themeToggle = document.getElementById('theme-toggle');
+        const apiGroups = document.getElementById('api-groups');
+        const welcomeMessage = document.getElementById('welcome-message');
+        const apiDetail = document.getElementById('api-detail');
+        const loadingOverlay = document.getElementById('loading-overlay');
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadApiDocumentation();
+            bindEvents();
+        });
+
+        // 绑定事件
+        function bindEvents() {
+            // 搜索功能
+            searchInput.addEventListener('input', debounce(handleSearch, 300));
+
+            // 环境切换
+            environmentSelect.addEventListener('change', handleEnvironmentChange);
+
+            // 刷新按钮
+            refreshBtn.addEventListener('click', handleRefresh);
+
+            // 主题切换
+            themeToggle.addEventListener('click', handleThemeToggle);
+
+            // Tab切换
+            document.addEventListener('click', function(e) {
+                if (e.target.classList.contains('api-tab')) {
+                    handleTabSwitch(e.target.dataset.tab);
+                }
+            });
+
+            // API项目点击
+            document.addEventListener('click', function(e) {
+                if (e.target.closest('.api-item')) {
+                    const apiIndex = e.target.closest('.api-item').dataset.apiIndex;
+                    showApiDetail(apiIndex);
+                }
+            });
+
+            // 分组折叠展开
+            document.addEventListener('click', function(e) {
+                if (e.target.closest('.group-header')) {
+                    const groupElement = e.target.closest('.api-group');
+                    const toggleIcon = groupElement.querySelector('.group-toggle');
+                    const apisContainer = groupElement.querySelector('.group-apis');
+
+                    toggleIcon.classList.toggle('expanded');
+                    apisContainer.classList.toggle('expanded');
+
+                    // 保存折叠状态到localStorage
+                    const groupName = groupElement.dataset.groupName;
+                    const isExpanded = apisContainer.classList.contains('expanded');
+                    localStorage.setItem(`group-${groupName}`, isExpanded);
+                }
+            });
+
+            // 展开所有分组
+            document.addEventListener('click', function(e) {
+                if (e.target.id === 'expand-all') {
+                    document.querySelectorAll('.api-group').forEach(groupElement => {
+                        const toggleIcon = groupElement.querySelector('.group-toggle');
+                        const apisContainer = groupElement.querySelector('.group-apis');
+                        const groupName = groupElement.dataset.groupName;
+
+                        toggleIcon.classList.add('expanded');
+                        apisContainer.classList.add('expanded');
+                        localStorage.setItem(`group-${groupName}`, true);
+                    });
+                }
+            });
+
+            // 折叠所有分组
+            document.addEventListener('click', function(e) {
+                if (e.target.id === 'collapse-all') {
+                    document.querySelectorAll('.api-group').forEach(groupElement => {
+                        const toggleIcon = groupElement.querySelector('.group-toggle');
+                        const apisContainer = groupElement.querySelector('.group-apis');
+                        const groupName = groupElement.dataset.groupName;
+
+                        toggleIcon.classList.remove('expanded');
+                        apisContainer.classList.remove('expanded');
+                        localStorage.setItem(`group-${groupName}`, false);
+                    });
+                }
+            });
+
+            // 发送请求
+            document.addEventListener('click', function(e) {
+                if (e.target.id === 'send-request') {
+                    handleSendRequest();
+                }
+            });
+
+            // 添加Header
+            document.addEventListener('click', function(e) {
+                if (e.target.id === 'add-header') {
+                    addHeaderRow();
+                }
+            });
+
+            // 删除Header
+            document.addEventListener('click', function(e) {
+                if (e.target.classList.contains('remove-header')) {
+                    removeHeaderRow(e.target);
+                }
+            });
+
+            // Header输入变化时更新预览
+            document.addEventListener('input', function(e) {
+                if (e.target.classList.contains('header-key') || e.target.classList.contains('header-value')) {
+                    updateRequestPreview();
+                }
+            });
+
+            // 生成示例数据
+            document.addEventListener('click', function(e) {
+                if (e.target.id === 'generate-example-btn' || e.target.closest('#generate-example-btn')) {
+                    generateAndFillExample();
+                }
+            });
+        }
+
+        // 生成并填充示例数据
+        function generateAndFillExample() {
+            if (!selectedApi) return;
+
+            const requestBodyTextarea = document.getElementById('request-body');
+            if (requestBodyTextarea) {
+                const exampleData = generateRequestBodyExample(selectedApi);
+                if (exampleData) {
+                    requestBodyTextarea.value = exampleData;
+                    // 更新请求预览
+                    updateRequestPreview();
+
+                    // 添加视觉反馈
+                    requestBodyTextarea.style.borderColor = '#10B981';
+                    setTimeout(() => {
+                        requestBodyTextarea.style.borderColor = '';
+                    }, 1000);
+                } else {
+                    // 如果没有生成示例数据，显示提示
+                    requestBodyTextarea.placeholder = '无法生成示例数据：未找到对象类型的请求参数';
+                }
+            }
+        }
+
+        // 添加Header行
+        function addHeaderRow(key = '', value = '') {
+            const container = document.getElementById('headers-container');
+            const headerRow = document.createElement('div');
+            headerRow.className = 'flex space-x-2 mb-2 header-row';
+            headerRow.innerHTML = `
+                <input type="text" placeholder="Key" value="${key}"
+                       class="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm header-key">
+                <input type="text" placeholder="Value" value="${value}"
+                       class="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm header-value">
+                <button class="px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 text-sm remove-header">
+                    删除
+                </button>
+            `;
+            container.appendChild(headerRow);
+            updateRequestPreview();
+        }
+
+        // 删除Header行
+        function removeHeaderRow(button) {
+            const headerRow = button.closest('.header-row');
+            headerRow.remove();
+            updateRequestPreview();
+        }
+
+        // 获取所有Headers
+        function getAllHeaders() {
+            const headers = {};
+            document.querySelectorAll('.header-row').forEach(row => {
+                const key = row.querySelector('.header-key').value.trim();
+                const value = row.querySelector('.header-value').value.trim();
+                if (key && value) {
+                    headers[key] = value;
+                }
+            });
+            return headers;
+        }
+
+        // 初始化Headers (添加默认的Content-Type)
+        function initializeHeaders() {
+            const container = document.getElementById('headers-container');
+            container.innerHTML = '';
+            addHeaderRow('Content-Type', 'application/json');
+        }
+
+        // 路径处理工具函数
+        function formatApiPath(path) {
+            if (!path || path.length <= 30) {
+                return {
+                    short: path,
+                    full: path,
+                    needsTruncation: false
+                };
+            }
+
+            // 智能截断：保留重要部分
+            const parts = path.split('/').filter(part => part);
+
+            if (parts.length <= 2) {
+                // 路径层级少，直接截断
+                return {
+                    short: path.length > 30 ? path.substring(0, 27) + '...' : path,
+                    full: path,
+                    needsTruncation: path.length > 30
+                };
+            }
+
+            // 保留开始和结束部分
+            const start = '/' + parts[0];
+            const end = parts[parts.length - 1];
+            const middle = parts.length > 3 ? '/.../' : '/' + parts[1] + '/';
+
+            const shortPath = start + middle + end;
+
+            return {
+                short: shortPath.length > 35 ? start + '/.../' + end.substring(0, 15) + '...' : shortPath,
+                full: path,
+                needsTruncation: true
+            };
+        }
+
+        // 生成路径显示HTML
+        function generatePathHtml(path) {
+            const pathInfo = formatApiPath(path);
+
+            if (!pathInfo.needsTruncation) {
+                return `<span class="api-path">${path}</span>`;
+            }
+
+            return `
+                <span class="path-tooltip" data-full-path="${pathInfo.full}">
+                    <span class="api-path-short api-path">${pathInfo.short}</span>
+                    <span class="api-path-full api-path">${pathInfo.full}</span>
+                </span>
+            `;
+        }
+
+        // 加载API文档
+        async function loadApiDocumentation() {
+            showLoading(true);
+            try {
+                const environment = environmentSelect.value;
+                const response = await fetch(`/api-doc/documentation?environment=${environment}`);
+                currentApiDoc = await response.json();
+                renderApiGroups();
+                updateStats();
+            } catch (error) {
+                console.error('加载API文档失败:', error);
+                showError('加载API文档失败，请检查服务是否正常运行');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // 渲染API分组
+        function renderApiGroups() {
+            if (!currentApiDoc || !currentApiDoc.groups) {
+                apiGroups.innerHTML = '<div class="text-center text-gray-500 py-4">暂无API文档</div>';
+                return;
+            }
+
+            let html = '';
+            currentApiDoc.groups.forEach((group, groupIndex) => {
+                // 检查localStorage中的折叠状态
+                const isExpanded = localStorage.getItem(`group-${group.name}`) !== 'false';
+                const expandedClass = isExpanded ? 'expanded' : '';
+
+                html += `
+                    <div class="mb-4 api-group" data-group-name="${group.name}">
+                        <div class="group-header cursor-pointer flex items-center justify-between p-2 hover:bg-gray-50 rounded-md">
+                            <h3 class="text-sm font-semibold text-gray-900 flex items-center">
+                                <span class="group-toggle mr-2 text-gray-400 ${expandedClass}">▶</span>
+                                <span class="mr-2">📁</span>
+                                ${group.name}
+                            </h3>
+                            <span class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">${group.apis.length}</span>
+                        </div>
+                        <div class="group-apis ml-4 ${expandedClass}">
+                `;
+
+                group.apis.forEach((api, apiIndex) => {
+                    const globalIndex = getGlobalApiIndex(groupIndex, apiIndex);
+                    const pathHtml = generatePathHtml(api.path);
+
+                    html += `
+                        <div class="api-item api-item-compact cursor-pointer p-3 rounded hover:bg-gray-50 border-l-4 border-transparent hover:border-blue-400 transition-all"
+                             data-api-index="${globalIndex}">
+                            <!-- 第一行：HTTP方法 + 状态标签 -->
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="method-badge method-${api.method.toLowerCase()} px-2 py-1 rounded text-xs font-medium border">
+                                    ${api.method}
+                                </span>
+                                <span class="status-badge status-${api.statusCss}">
+                                    ${api.statusLabel}
+                                </span>
+                            </div>
+                            <!-- 第二行：API路径 -->
+                            <div class="text-sm text-gray-700 mb-1 font-mono">
+                                ${pathHtml}
+                            </div>
+                            <!-- 第三行：API描述 -->
+                            <div class="text-xs text-gray-600 truncate">
+                                ${api.summary}
+                            </div>
+                        </div>
+                    `;
+                });
+
+                html += '</div></div>';
+            });
+
+            apiGroups.innerHTML = html;
+        }
+
+        // 获取API的全局索引
+        function getGlobalApiIndex(groupIndex, apiIndex) {
+            let globalIndex = 0;
+            for (let i = 0; i < groupIndex; i++) {
+                globalIndex += currentApiDoc.groups[i].apis.length;
+            }
+            return globalIndex + apiIndex;
+        }
+
+        // 更新统计信息
+        function updateStats() {
+            if (!currentApiDoc) return;
+
+            document.getElementById('total-apis').textContent = currentApiDoc.allApis?.length || 0;
+            document.getElementById('total-groups').textContent = currentApiDoc.groups?.length || 0;
+        }
+
+        // 显示API详情
+        function showApiDetail(globalIndex) {
+            const api = findApiByGlobalIndex(parseInt(globalIndex));
+            if (!api) return;
+
+            selectedApi = api;
+            welcomeMessage.classList.add('hidden');
+            apiDetail.classList.remove('hidden');
+
+            renderApiHeader(api);
+            renderApiDocumentation(api);
+            renderApiTesting(api);
+            renderApiExamples(api);
+        }
+
+        // 根据全局索引查找API
+        function findApiByGlobalIndex(globalIndex) {
+            let currentIndex = 0;
+            for (const group of currentApiDoc.groups) {
+                for (const api of group.apis) {
+                    if (currentIndex === globalIndex) {
+                        return api;
+                    }
+                    currentIndex++;
+                }
+            }
+            return null;
+        }
+
+        // 渲染API头部
+        function renderApiHeader(api) {
+            const header = document.getElementById('api-header');
+            header.innerHTML = `
+                <div class="flex items-start justify-between">
+                    <div>
+                        <div class="flex items-center space-x-3 mb-2">
+                            <span class="method-badge method-${api.method.toLowerCase()} px-3 py-1 rounded-md text-sm font-medium border">
+                                ${api.method}
+                            </span>
+                            <code class="text-lg font-mono text-gray-900">${api.path}</code>
+                            <span class="status-badge status-${api.statusCss}">
+                                ${api.statusLabel}
+                            </span>
+                        </div>
+                        <h2 class="text-xl font-bold text-gray-900 mb-1">${api.summary}</h2>
+                        ${api.description ? `<p class="text-gray-600">${api.description}</p>` : ''}
+                    </div>
+                    <div class="text-sm text-gray-500">
+                        <div>分组: ${api.group}</div>
+                        ${api.version ? `<div>版本: ${api.version}</div>` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        // 渲染API文档
+        function renderApiDocumentation(api) {
+            const doc = document.getElementById('api-documentation');
+            let html = '';
+
+            // 参数信息
+            if (api.parameters && api.parameters.length > 0) {
+                html += `
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-3">📝 请求参数</h3>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">参数名</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">类型</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">位置</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">必填</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">默认值</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">示例</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">说明</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                `;
+
+                api.parameters.forEach(param => {
+                    // 确定参数位置的中文描述
+                    let paramLocation = '';
+                    if (param.paramType === 'body') {
+                        paramLocation = 'Body';
+                    } else if (param.paramType === 'path') {
+                        paramLocation = 'Path';
+                    } else if (param.paramType === 'query') {
+                        paramLocation = 'Query';
+                    } else if (param.paramType === 'header') {
+                        paramLocation = 'Header';
+                    } else if (param.paramType === 'file') {
+                        paramLocation = 'File';
+                    } else {
+                        paramLocation = 'Query'; // 默认
+                    }
+
+                    html += `
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                                <div class="flex items-center">
+                                    <code class="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-mono">${param.name}</code>
+                                </div>
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                <code class="bg-gray-100 px-2 py-1 rounded text-xs">${param.type}</code>
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${paramLocation === 'Body' ? 'bg-purple-100 text-purple-800' : paramLocation === 'Path' ? 'bg-green-100 text-green-800' : paramLocation === 'File' ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800'}">
+                                    ${paramLocation === 'File' ? '📎 ' + paramLocation : paramLocation}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                ${param.required ? '<span class="text-red-600 font-semibold">✓ 必填</span>' : '<span class="text-gray-400">可选</span>'}
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                ${param.defaultValue ? '<code class="bg-yellow-50 text-yellow-700 px-2 py-1 rounded text-xs">' + param.defaultValue + '</code>' : '<span class="text-gray-400">-</span>'}
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                ${param.example ? '<code class="bg-green-50 text-green-700 px-2 py-1 rounded text-xs">' + param.example + '</code>' : '<span class="text-gray-400">-</span>'}
+                            </td>
+                            <td class="px-4 py-3 text-sm text-gray-600">
+                                <div class="max-w-xs">
+                                    ${param.description || '<span class="text-gray-400 italic">暂无说明</span>'}
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+
+                    // 如果参数有字段详情，显示子字段
+                    if (param.fields && param.fields.length > 0) {
+                        html += `
+                            <tr class="bg-gray-50">
+                                <td colspan="7" class="px-4 py-3">
+                                    <div class="ml-4">
+                                        <h5 class="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                                            <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                                <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"></path>
+                                            </svg>
+                                            对象字段详情
+                                        </h5>
+                                        <div class="bg-white border border-gray-200 rounded-md">
+                                            <table class="min-w-full text-sm">
+                                                <thead class="bg-gray-100">
+                                                    <tr>
+                                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">字段名</th>
+                                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">类型</th>
+                                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">说明</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody class="divide-y divide-gray-200">
+                                                    ${renderParameterFieldRows(param.fields, 0)}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                    }
+                });
+
+                html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // 返回信息
+            if (api.returnType) {
+                html += `
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-3">📤 返回信息</h3>
+                        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 mb-4">
+                            <div class="flex items-center space-x-4 mb-3">
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-sm font-medium text-gray-700">数据类型:</span>
+                                    <code class="bg-white px-3 py-1 rounded-md text-sm font-mono border shadow-sm">${api.returnType.type}</code>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-sm font-medium text-gray-700">格式:</span>
+                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">JSON</span>
+                                </div>
+                            </div>
+                            ${api.returnType.description ?
+                                '<div class="border-t border-blue-200 pt-3">' +
+                                    '<span class="text-sm font-medium text-gray-700">说明:</span>' +
+                                    '<p class="text-sm text-gray-600 mt-1">' + api.returnType.description + '</p>' +
+                                '</div>'
+                            : ''}
+                            <div class="mt-3 text-xs text-gray-500">
+                                <span class="inline-flex items-center">
+                                    <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                                    </svg>
+                                    响应数据将以JSON格式返回，请注意处理数据类型转换
+                                </span>
+                            </div>
+                        </div>
+                `;
+
+                // 如果有字段信息，显示字段详情表格
+                if (api.returnType.fields && api.returnType.fields.length > 0) {
+                    html += renderReturnTypeFields(api.returnType.fields);
+                }
+
+                html += `</div>`;
+            }
+
+            doc.innerHTML = html || '<div class="text-gray-500">暂无详细文档</div>';
+        }
+
+        // 渲染返回类型字段表格
+        function renderReturnTypeFields(fields) {
+            return `
+                <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                    <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                        <h4 class="text-md font-semibold text-gray-900 flex items-center">
+                            <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"></path>
+                            </svg>
+                            字段详情
+                        </h4>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">字段名</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">数据类型</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">说明</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                ${renderFieldRows(fields, 0)}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 递归渲染字段行（支持嵌套对象）
+        function renderFieldRows(fields, level) {
+            let html = '';
+            fields.forEach(field => {
+                const hasChildren = field.children && field.children.length > 0;
+                const indentStyle = 'padding-left: ' + (level * 20) + 'px';
+
+                html += `
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                            <div class="flex items-center" style="${indentStyle}">
+                                ${hasChildren ?
+                                    '<svg class="w-3 h-3 mr-1 text-gray-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path></svg>' :
+                                    '<span class="w-3 mr-1"></span>'
+                                }
+                                <code class="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-mono">${field.name}</code>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getFieldTypeClass(field.type)}">
+                                ${field.type}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-600">
+                            <div class="max-w-xs">
+                                ${field.description || '<span class="text-gray-400 italic">暂无说明</span>'}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+
+                // 递归渲染子字段
+                if (hasChildren) {
+                    html += renderFieldRows(field.children, level + 1);
+                }
+            });
+            return html;
+        }
+
+        // 获取字段类型的CSS类
+        function getFieldTypeClass(type) {
+            switch(type.toLowerCase()) {
+                case 'string': return 'bg-green-100 text-green-800';
+                case 'integer': case 'int': case 'long': return 'bg-blue-100 text-blue-800';
+                case 'double': case 'float': return 'bg-purple-100 text-purple-800';
+                case 'boolean': return 'bg-yellow-100 text-yellow-800';
+                case 'enum': return 'bg-orange-100 text-orange-800';
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        }
+
+        // 递归渲染参数字段行（支持嵌套对象）
+        function renderParameterFieldRows(fields, level) {
+            let html = '';
+            fields.forEach(field => {
+                const hasChildren = field.children && field.children.length > 0;
+                const indentStyle = 'padding-left: ' + (level * 15) + 'px';
+
+                html += `
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
+                            <div class="flex items-center" style="${indentStyle}">
+                                ${hasChildren ?
+                                    '<svg class="w-3 h-3 mr-1 text-gray-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path></svg>' :
+                                    '<span class="w-3 mr-1"></span>'
+                                }
+                                <code class="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-mono">${field.name}</code>
+                            </div>
+                        </td>
+                        <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getFieldTypeClass(field.type)}">
+                                ${field.type}
+                            </span>
+                        </td>
+                        <td class="px-3 py-2 text-sm text-gray-600">
+                            <div class="max-w-xs">
+                                ${field.description || '<span class="text-gray-400 italic">暂无说明</span>'}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+
+                // 递归渲染子字段
+                if (hasChildren) {
+                    html += renderParameterFieldRows(field.children, level + 1);
+                }
+            });
+            return html;
+        }
+
+        // 生成字段示例值
+        function generateFieldExampleValue(field) {
+            // 如果有明确的示例值，使用示例值
+            if (field.example && field.example.trim() !== '') {
+                try {
+                    // 尝试解析为JSON（如果是数字、布尔值等）
+                    if (field.type === 'integer' || field.type === 'int' || field.type === 'long') {
+                        return parseInt(field.example);
+                    } else if (field.type === 'double' || field.type === 'float') {
+                        return parseFloat(field.example);
+                    } else if (field.type === 'boolean') {
+                        return field.example.toLowerCase() === 'true';
+                    } else {
+                        return field.example;
+                    }
+                } catch (e) {
+                    return field.example;
+                }
+            }
+
+            // 根据字段类型生成默认示例值
+            switch (field.type.toLowerCase()) {
+                case 'string':
+                    return field.name === 'email' ? 'user@example.com' :
+                           field.name === 'phone' ? '13800138000' :
+                           field.name.includes('name') ? 'exampleName' : 'example';
+                case 'integer':
+                case 'int':
+                    return 1;
+                case 'long':
+                    return 1001;
+                case 'double':
+                case 'float':
+                    return 1.0;
+                case 'boolean':
+                    return true;
+                default:
+                    // 对于复杂类型，如果有子字段就递归生成
+                    if (field.children && field.children.length > 0) {
+                        return generateObjectExample(field.children);
+                    }
+                    // List类型
+                    if (field.type.startsWith('List<')) {
+                        return [];
+                    }
+                    // Map类型
+                    if (field.type.startsWith('Map<')) {
+                        return {};
+                    }
+                    return null;
+            }
+        }
+
+        // 根据字段列表生成对象示例
+        function generateObjectExample(fields) {
+            const obj = {};
+            fields.forEach(field => {
+                const value = generateFieldExampleValue(field);
+                if (value !== null) {
+                    obj[field.name] = value;
+                }
+            });
+            return obj;
+        }
+
+        // 生成Request Body示例数据
+        function generateRequestBodyExample(api) {
+            if (!api.parameters) return '';
+
+            // 查找body类型的参数
+            const bodyParam = api.parameters.find(p => p.paramType === 'body');
+            if (bodyParam) {
+                return generateParameterExample(bodyParam);
+            }
+
+            // 如果没有明确的body参数，但方法是POST/PUT/PATCH，尝试生成基本示例
+            if (['POST', 'PUT', 'PATCH'].includes(api.method)) {
+                // 检查是否有复杂类型的参数可以作为body示例
+                const complexParam = api.parameters.find(p => p.fields && p.fields.length > 0);
+                if (complexParam) {
+                    return generateParameterExample(complexParam);
+                }
+            }
+
+            return '';
+        }
+
+        // 根据参数生成示例数据
+        function generateParameterExample(param) {
+            if (!param.type) return '';
+
+            // 处理泛型集合类型
+            if (param.type.startsWith('List<') || param.type.startsWith('Set<')) {
+                const exampleArray = [];
+                if (param.fields && param.fields.length > 0) {
+                    // 从容器字段中提取元素类型的字段信息
+                    const containerField = param.fields[0]; // List元素 或 Set元素
+                    if (containerField && containerField.children && containerField.children.length > 0) {
+                        // 生成1-2个示例元素
+                        exampleArray.push(generateObjectExample(containerField.children));
+                        exampleArray.push(generateObjectExample(containerField.children));
+                    }
+                }
+                return JSON.stringify(exampleArray, null, 2);
+            }
+
+            // 处理Map类型
+            else if (param.type.startsWith('Map<')) {
+                const exampleMap = {};
+                if (param.fields && param.fields.length > 0) {
+                    const mapValueField = param.fields[0]; // Map值
+                    if (mapValueField && mapValueField.children && mapValueField.children.length > 0) {
+                        exampleMap['key1'] = generateObjectExample(mapValueField.children);
+                        exampleMap['key2'] = generateObjectExample(mapValueField.children);
+                    } else {
+                        exampleMap['key1'] = 'value1';
+                        exampleMap['key2'] = 'value2';
+                    }
+                }
+                return JSON.stringify(exampleMap, null, 2);
+            }
+
+            // 处理普通对象类型
+            else if (param.fields && param.fields.length > 0) {
+                const exampleObj = generateObjectExample(param.fields);
+                return JSON.stringify(exampleObj, null, 2);
+            }
+
+            return '';
+        }
+
+        // 渲染API测试
+        function renderApiTesting(api) {
+            // 初始化Headers
+            initializeHeaders();
+
+            // 渲染参数表单
+            renderParametersForm(api);
+
+            // 更新请求预览
+            updateRequestPreview();
+        }
+
+        // 渲染参数表单
+        function renderParametersForm(api) {
+            const container = document.getElementById('parameters-container');
+            const requestBodySection = document.getElementById('request-body-section');
+
+            let html = '';
+
+            if (api.parameters && api.parameters.length > 0) {
+                api.parameters.forEach(param => {
+                    if (param.paramType !== 'body') {
+                        // 为文件类型参数创建特殊的文件选择控件
+                        if (param.paramType === 'file') {
+                            html += `
+                                <div class="flex flex-col space-y-2 mb-4 p-3 border border-orange-200 rounded-lg bg-orange-50">
+                                    <div class="flex items-center space-x-2">
+                                        <label class="text-sm font-medium text-orange-800">📎 ${param.name}</label>
+                                        <span class="px-2 py-1 text-xs text-orange-700 bg-orange-100 rounded-full">
+                                            ${param.required ? '必填' : '可选'}
+                                        </span>
+                                    </div>
+                                    <input type="file"
+                                           class="file-input w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100"
+                                           data-param-name="${param.name}"
+                                           ${param.type.includes('List<') || param.type.includes('[]') ? 'multiple' : ''}>
+                                    <div class="text-xs text-orange-600">
+                                        ${param.description || '请选择要上传的文件'}
+                                    </div>
+                                </div>
+                            `;
+                        } else {
+                            html += `
+                                <div class="flex space-x-2 mb-2">
+                                    <input type="text" value="${param.name}" readonly
+                                           class="w-32 px-3 py-2 border border-gray-300 rounded-md text-sm bg-gray-50">
+                                    <input type="text" placeholder="${param.example || param.type}"
+                                           class="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm param-value"
+                                           data-param-name="${param.name}">
+                                    <span class="px-3 py-2 text-sm text-gray-500 bg-gray-50 rounded-md">
+                                        ${param.required ? '必填' : '可选'}
+                                    </span>
+                                </div>
+                            `;
+                        }
+                    }
+                });
+            }
+
+            container.innerHTML = html || '<div class="text-gray-500 text-sm">无参数</div>';
+
+            // 显示/隐藏Request Body
+            const hasBodyParam = api.parameters?.some(p => p.paramType === 'body') || ['POST', 'PUT', 'PATCH'].includes(api.method);
+            const hasFileParam = api.parameters?.some(p => p.paramType === 'file');
+
+            // 如果有文件参数，隐藏Request Body
+            requestBodySection.style.display = (hasBodyParam && !hasFileParam) ? 'block' : 'none';
+
+            // 如果显示Request Body，填充示例数据
+            if (hasBodyParam && !hasFileParam) {
+                const requestBodyTextarea = document.getElementById('request-body');
+                if (requestBodyTextarea) {
+                    const exampleData = generateRequestBodyExample(api);
+                    if (exampleData) {
+                        requestBodyTextarea.value = exampleData;
+                    }
+                }
+            }
+
+            // 监听参数变化
+            container.addEventListener('input', updateRequestPreview);
+
+            // 监听Request Body变化
+            const requestBodyEl = document.getElementById('request-body');
+            if (requestBodyEl) {
+                requestBodyEl.addEventListener('input', updateRequestPreview);
+            }
+
+            // 监听文件选择变化
+            container.addEventListener('change', function(e) {
+                if (e.target.classList.contains('file-input')) {
+                    updateRequestPreview();
+                }
+            });
+        }
+
+        // 更新请求预览
+        function updateRequestPreview() {
+            if (!selectedApi) return;
+
+            const preview = document.getElementById('request-preview');
+            let url = selectedApi.path;
+            let body = '';
+            let previewText = '';
+
+            // 检查是否有文件参数
+            const fileInputs = document.querySelectorAll('.file-input');
+            const hasFiles = fileInputs.length > 0;
+
+            // 构建URL参数
+            const paramValues = Array.from(document.querySelectorAll('.param-value'));
+            const queryParams = [];
+
+            paramValues.forEach(input => {
+                const value = input.value.trim();
+                if (value) {
+                    const paramName = input.dataset.paramName;
+                    if (url.includes(`{${paramName}}`)) {
+                        url = url.replace(`{${paramName}}`, value);
+                    } else {
+                        queryParams.push(`${paramName}=${encodeURIComponent(value)}`);
+                    }
+                }
+            });
+
+            if (queryParams.length > 0) {
+                url += '?' + queryParams.join('&');
+            }
+
+            // 构建预览
+            previewText = `${selectedApi.method} ${url} HTTP/1.1\n`;
+            previewText += `Host: ${window.location.host}\n`;
+
+            if (hasFiles) {
+                // 文件上传预览
+                previewText += `Content-Type: multipart/form-data\n\n`;
+                previewText += `--- FormData ---\n`;
+
+                // 显示文件信息
+                fileInputs.forEach(fileInput => {
+                    const paramName = fileInput.dataset.paramName;
+                    if (fileInput.files.length > 0) {
+                        Array.from(fileInput.files).forEach((file, index) => {
+                            previewText += `${paramName}${fileInput.multiple && index > 0 ? `[${index}]` : ''}: ${file.name} (${(file.size / 1024).toFixed(2)} KB)\n`;
+                        });
+                    } else {
+                        previewText += `${paramName}: <未选择文件>\n`;
+                    }
+                });
+
+                // 显示其他参数
+                paramValues.forEach(input => {
+                    const value = input.value.trim();
+                    if (value) {
+                        const paramName = input.dataset.paramName;
+                        if (!url.includes(`{${paramName}}`) && !url.includes(`${paramName}=`)) {
+                            previewText += `${paramName}: ${value}\n`;
+                        }
+                    }
+                });
+            } else {
+                // 常规请求预览
+                const headers = getAllHeaders();
+                Object.entries(headers).forEach(([key, value]) => {
+                    previewText += `${key}: ${value}\n`;
+                });
+
+                // 获取请求体
+                const requestBodyEl = document.getElementById('request-body');
+                if (requestBodyEl && requestBodyEl.style.display !== 'none') {
+                    body = requestBodyEl.value.trim();
+                }
+
+                if (body) {
+                    previewText += `\n${body}`;
+                }
+            }
+
+            preview.textContent = previewText;
+        }
+
+        // 处理发送请求
+        async function handleSendRequest() {
+            if (!selectedApi) return;
+
+            showLoading(true);
+
+            try {
+                // 检查是否有文件参数
+                const fileInputs = document.querySelectorAll('.file-input');
+                const hasFiles = fileInputs.length > 0;
+
+                // 构建请求URL
+                let url = selectedApi.path;
+                const paramValues = Array.from(document.querySelectorAll('.param-value'));
+                const queryParams = [];
+
+                paramValues.forEach(input => {
+                    const value = input.value.trim();
+                    if (value) {
+                        const paramName = input.dataset.paramName;
+                        if (url.includes(`{${paramName}}`)) {
+                            url = url.replace(`{${paramName}}`, value);
+                        } else {
+                            queryParams.push(`${paramName}=${encodeURIComponent(value)}`);
+                        }
+                    }
+                });
+
+                if (queryParams.length > 0) {
+                    url += '?' + queryParams.join('&');
+                }
+
+                // 构建请求选项
+                const options = {
+                    method: selectedApi.method
+                };
+
+                if (hasFiles) {
+                    // 文件上传使用 FormData
+                    const formData = new FormData();
+
+                    // 添加文件
+                    fileInputs.forEach(fileInput => {
+                        const paramName = fileInput.dataset.paramName;
+                        if (fileInput.multiple) {
+                            // 多文件上传
+                            Array.from(fileInput.files).forEach(file => {
+                                formData.append(paramName, file);
+                            });
+                        } else {
+                            // 单文件上传
+                            if (fileInput.files[0]) {
+                                formData.append(paramName, fileInput.files[0]);
+                            }
+                        }
+                    });
+
+                    // 添加其他参数
+                    paramValues.forEach(input => {
+                        const value = input.value.trim();
+                        if (value) {
+                            const paramName = input.dataset.paramName;
+                            // 避免重复添加URL路径参数
+                            if (!url.includes(`{${paramName}}`) && !url.includes(`${paramName}=`)) {
+                                formData.append(paramName, value);
+                            }
+                        }
+                    });
+
+                    options.body = formData;
+                } else {
+                    // 非文件上传的常规处理
+                    const customHeaders = getAllHeaders();
+                    options.headers = customHeaders;
+
+                    // 添加请求体
+                    const requestBodyEl = document.getElementById('request-body');
+                    if (requestBodyEl && requestBodyEl.value.trim() && ['POST', 'PUT', 'PATCH'].includes(selectedApi.method)) {
+                        try {
+                            JSON.parse(requestBodyEl.value); // 验证JSON格式
+                            options.body = requestBodyEl.value;
+                        } catch (e) {
+                            throw new Error('请求体JSON格式不正确');
+                        }
+                    }
+                }
+
+                // 发送请求
+                const startTime = Date.now();
+                const response = await fetch(url, options);
+                const endTime = Date.now();
+                const responseText = await response.text();
+
+                // 显示响应结果
+                showResponse(response, responseText, endTime - startTime);
+
+            } catch (error) {
+                showResponseError(error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // 显示响应结果
+        function showResponse(response, responseText, duration) {
+            const responseSection = document.getElementById('response-section');
+            const responseStatus = document.getElementById('response-status');
+            const responseBody = document.getElementById('response-body');
+
+            responseSection.classList.remove('hidden');
+
+            // 状态信息
+            const statusClass = response.ok ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+            responseStatus.className = `mb-3 p-3 rounded-md ${statusClass}`;
+            responseStatus.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <span class="font-semibold">状态: ${response.status} ${response.statusText}</span>
+                    <span class="text-sm">耗时: ${duration}ms</span>
+                </div>
+            `;
+
+            // 响应体
+            let formattedResponse = responseText;
+            try {
+                const jsonResponse = JSON.parse(responseText);
+                formattedResponse = JSON.stringify(jsonResponse, null, 2);
+            } catch (e) {
+                // 不是JSON格式，保持原样
+            }
+
+            responseBody.textContent = formattedResponse;
+        }
+
+        // 显示响应错误
+        function showResponseError(errorMessage) {
+            const responseSection = document.getElementById('response-section');
+            const responseStatus = document.getElementById('response-status');
+            const responseBody = document.getElementById('response-body');
+
+            responseSection.classList.remove('hidden');
+
+            responseStatus.className = 'mb-3 p-3 rounded-md bg-red-100 text-red-800';
+            responseStatus.innerHTML = `<span class="font-semibold">请求失败: ${errorMessage}</span>`;
+
+            responseBody.textContent = '';
+        }
+
+        // 渲染API示例
+        function renderApiExamples(api) {
+            const examples = document.getElementById('api-examples');
+
+            if (api.examples && Object.keys(api.examples).length > 0) {
+                let html = '';
+                Object.entries(api.examples).forEach(([key, example]) => {
+                    html += `
+                        <div class="mb-6">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-3 capitalize">
+                                ${key === 'success' ? '✅ 成功示例' : key === 'error' ? '❌ 错误示例' : `📋 ${key}`}
+                            </h3>
+                            <pre class="bg-gray-50 p-4 rounded-md text-sm code-block border border-gray-200 overflow-x-auto">${JSON.stringify(example, null, 2)}</pre>
+                        </div>
+                    `;
+                });
+                examples.innerHTML = html;
+            } else {
+                examples.innerHTML = '<div class="text-gray-500">暂无示例数据</div>';
+            }
+        }
+
+        // 处理Tab切换
+        function handleTabSwitch(tabName) {
+            // 更新Tab状态
+            document.querySelectorAll('.api-tab').forEach(tab => {
+                if (tab.dataset.tab === tabName) {
+                    tab.className = 'api-tab py-4 px-1 border-b-2 font-medium text-sm border-blue-500 text-blue-600';
+                } else {
+                    tab.className = 'api-tab py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300';
+                }
+            });
+
+            // 显示对应内容
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+        }
+
+        // 处理搜索
+        function handleSearch() {
+            const query = searchInput.value.toLowerCase().trim();
+
+            if (!query) {
+                renderApiGroups();
+                return;
+            }
+
+            // 过滤API
+            const filteredGroups = currentApiDoc.groups.map(group => ({
+                ...group,
+                apis: group.apis.filter(api =>
+                    api.summary.toLowerCase().includes(query) ||
+                    api.path.toLowerCase().includes(query) ||
+                    api.method.toLowerCase().includes(query)
+                )
+            })).filter(group => group.apis.length > 0);
+
+            // 渲染过滤结果
+            let html = '';
+            if (filteredGroups.length === 0) {
+                html = '<div class="text-center text-gray-500 py-4">未找到匹配的API</div>';
+            } else {
+                filteredGroups.forEach((group, groupIndex) => {
+                    // 搜索时默认展开所有分组
+                    html += `
+                        <div class="mb-4 api-group" data-group-name="${group.name}">
+                            <div class="group-header cursor-pointer flex items-center justify-between p-2 hover:bg-gray-50 rounded-md">
+                                <h3 class="text-sm font-semibold text-gray-900 flex items-center">
+                                    <span class="group-toggle mr-2 text-gray-400 expanded">▶</span>
+                                    <span class="mr-2">📁</span>
+                                    ${group.name}
+                                </h3>
+                                <span class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">${group.apis.length}</span>
+                            </div>
+                            <div class="group-apis ml-4 expanded">
+                    `;
+
+                    group.apis.forEach((api, apiIndex) => {
+                        const globalIndex = getGlobalApiIndex(groupIndex, apiIndex);
+                        const pathHtml = generatePathHtml(api.path);
+
+                        html += `
+                            <div class="api-item api-item-compact cursor-pointer p-3 rounded hover:bg-gray-50 border-l-4 border-transparent hover:border-blue-400 transition-all"
+                                 data-api-index="${globalIndex}">
+                                <!-- 第一行：HTTP方法 + 状态标签 -->
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="method-badge method-${api.method.toLowerCase()} px-2 py-1 rounded text-xs font-medium border">
+                                        ${api.method}
+                                    </span>
+                                    <span class="status-badge status-${api.statusCss}">
+                                        ${api.statusLabel}
+                                    </span>
+                                </div>
+                                <!-- 第二行：API路径 -->
+                                <div class="text-sm text-gray-700 mb-1 font-mono">
+                                    ${highlightText(pathHtml, query)}
+                                </div>
+                                <!-- 第三行：API描述 -->
+                                <div class="text-xs text-gray-600 truncate">
+                                    ${highlightText(api.summary, query)}
+                                </div>
+                            </div>
+                        `;
+                    });
+
+                    html += '</div></div>';
+                });
+            }
+
+            apiGroups.innerHTML = html;
+        }
+
+        // 高亮搜索文本
+        function highlightText(text, query) {
+            if (!query) return text;
+            const regex = new RegExp(`(${escapeRegExp(query)})`, 'gi');
+            return text.replace(regex, '<mark class="bg-yellow-200">$1</mark>');
+        }
+
+        // 转义正则表达式特殊字符
+        function escapeRegExp(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        // 处理环境切换
+        function handleEnvironmentChange() {
+            loadApiDocumentation();
+        }
+
+        // 处理刷新
+        function handleRefresh() {
+            loadApiDocumentation();
+        }
+
+        // 处理主题切换
+        function handleThemeToggle() {
+            document.body.classList.toggle('dark');
+            // 这里可以实现更复杂的主题切换逻辑
+        }
+
+        // 显示加载状态
+        function showLoading(show) {
+            if (show) {
+                loadingOverlay.classList.remove('hidden');
+            } else {
+                loadingOverlay.classList.add('hidden');
+            }
+        }
+
+        // 显示错误信息
+        function showError(message) {
+            // 这里可以实现更好的错误提示
+            alert(message);
+        }
+
+        // 防抖函数
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+    </script>
+</body>
+</html>
