@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spring Boot 静态资源权限控制演示</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Spring Boot 静态资源权限控制演示</h1>
+
+        <div class="user-info">
+            <div th:if="${isAuthenticated}">
+                <p>当前用户: <span th:text="${currentUser}">未知</span></p>
+                <p>用户角色: <span th:text="${userRoles}">无</span></p>
+                <p>SEC 用户: <span sec:authentication="name">未知</span></p>
+                <p>SEC 角色: <span sec:authentication="authorities">无</span></p>
+                <a href="/logout" class="btn">退出登录</a>
+            </div>
+            <div th:unless="${isAuthenticated}">
+                <p>当前用户: 游客 (未登录)</p>
+                <a href="/login" class="btn">登录</a>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2>测试说明</h2>
+            <p>此演示项目包含三种静态资源权限控制方案：</p>
+            <ul>
+                <li><strong>方案一</strong>：Spring Security 全局保护 - 默认配置，/uploads/ 下的资源需要登录才能访问</li>
+                <li><strong>方案二</strong>：自定义Controller代理 - 通过 /files/ 端点访问私有文件，支持复杂权限控制</li>
+                <li><strong>方案三</strong>：拦截器动态校验 - 使用拦截器对 /uploads/ 路径进行权限检查</li>
+            </ul>
+        </div>
+
+        <div class="demo-section">
+            <h2>公开资源测试</h2>
+            <p>以下资源无需登录即可访问：</p>
+            <ul>
+                <li><a href="/css/style.css" target="_blank">样式文件 (CSS)</a></li>
+                <li><a href="/js/app.js" target="_blank">JavaScript 文件</a></li>
+                <li><a href="/images/logo.png" target="_blank">公开图片</a></li>
+                <li><a href="/api/public/info" target="_blank">公开API</a></li>
+            </ul>
+        </div>
+
+        <div class="demo-section" sec:authorize="isAuthenticated()">
+            <h2>受保护资源测试</h2>
+            <p>以下资源需要相应权限才能访问：</p>
+
+            <h3>方案一测试（Spring Security 全局保护）</h3>
+            <ul>
+                <li><a href="/uploads/admin-document.pdf" target="_blank">管理员文档 (需要登录)</a></li>
+                <li><a href="/uploads/user-contract.pdf" target="_blank">用户合同 (需要登录)</a></li>
+            </ul>
+
+            <h3>方案二测试（Controller 代理访问）</h3>
+            <ul>
+                <li><a href="/files/admin-document.pdf" target="_blank">管理员文档 (仅admin可访问)</a></li>
+                <li><a href="/files/user-contract.pdf" target="_blank">用户合同 (仅user可访问)</a></li>
+                <li><a href="/files/private-data.xlsx" target="_blank">私密数据 (仅admin可访问)</a></li>
+                <li><a href="/files/user-avatar.jpg" target="_blank">用户头像 (仅user可访问)</a></li>
+            </ul>
+
+            <h3>方案三测试（拦截器校验）</h3>
+            <p>访问 /uploads/ 路径下的文件时，会被拦截器检查权限</p>
+
+            <h3>受保护API测试</h3>
+            <ul>
+                <li><a href="/api/private/user-info" target="_blank">用户信息API (需要登录)</a></li>
+            </ul>
+        </div>
+
+        <div class="demo-section" sec:authorize="!isAuthenticated()">
+            <h2>请先登录</h2>
+            <p>要测试受保护的资源，请先 <a href="/login">登录</a>。</p>
+        </div>
+
+        <div class="demo-section">
+            <h2>测试账号</h2>
+            <ul>
+                <li><strong>管理员</strong>：用户名 admin，密码 admin123</li>
+                <li><strong>普通用户</strong>：用户名 user，密码 user123</li>
+            </ul>
+        </div>
+    </div>
+
+    <script src="/js/app.js"></script>
+</body>
+</html>

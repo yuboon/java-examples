@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - 静态资源权限控制演示</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="login-form">
+            <h2>登录</h2>
+
+            <div th:if="${param.error}" class="alert alert-error">
+                用户名或密码错误！
+            </div>
+
+            <div th:if="${param.logout}" class="alert alert-success">
+                您已成功退出登录。
+            </div>
+
+            <form th:action="@{/login}" method="post">
+                <div class="form-group">
+                    <label for="username">用户名:</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">密码:</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+
+                <button type="submit" class="btn btn-primary">登录</button>
+            </form>
+
+            <div class="demo-accounts">
+                <h3>测试账号</h3>
+                <p><strong>管理员</strong>：admin / admin123</p>
+                <p><strong>普通用户</strong>：user / user123</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
