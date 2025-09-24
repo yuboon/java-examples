@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>业务场景演示 - 动态规则引擎</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        success: '#10B981',
+                        error: '#EF4444'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-white shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16">
+                    <h1 class="text-2xl font-bold text-gray-900">🛒 订单处理业务演示</h1>
+                    <nav class="flex space-x-4">
+                        <a href="/index.html" class="text-gray-600 hover:text-primary transition-colors">规则管理</a>
+                        <a href="/business.html" class="text-primary font-medium border-b-2 border-primary pb-1">业务演示</a>
+                    </nav>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- 业务介绍 -->
+            <div class="bg-white rounded-lg shadow-sm p-6 mb-8">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4">💡 业务场景说明</h2>
+                <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
+                    <p class="text-blue-800">
+                        <strong>电商订单处理流程：</strong> 当用户下单时，系统需要依次执行多个业务规则来计算最终价格和积分奖励。
+                        通过动态规则引擎，我们可以在不重启应用的情况下调整这些业务逻辑。
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-gradient-to-r from-purple-100 to-pink-100 p-4 rounded-lg">
+                        <h3 class="font-semibold text-purple-800 mb-2">1️⃣ VIP折扣</h3>
+                        <p class="text-sm text-purple-700">根据用户等级应用不同折扣率</p>
+                    </div>
+                    <div class="bg-gradient-to-r from-green-100 to-blue-100 p-4 rounded-lg">
+                        <h3 class="font-semibold text-green-800 mb-2">2️⃣ 满减活动</h3>
+                        <p class="text-sm text-green-700">满足条件时自动减免金额</p>
+                    </div>
+                    <div class="bg-gradient-to-r from-yellow-100 to-orange-100 p-4 rounded-lg">
+                        <h3 class="font-semibold text-orange-800 mb-2">3️⃣ 积分奖励</h3>
+                        <p class="text-sm text-orange-700">基于最终金额计算积分</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 订单模拟器 -->
+            <div class="bg-white rounded-lg shadow-sm p-6 mb-8">
+                <h2 class="text-xl font-semibold text-gray-900 mb-6">🎮 订单模拟器</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">用户等级</label>
+                        <select id="userLevel" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option value="NORMAL">普通会员</option>
+                            <option value="SILVER">银牌会员</option>
+                            <option value="GOLD">金牌会员</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">订单金额 (元)</label>
+                        <input type="number" id="orderAmount" value="150" step="0.01"
+                               class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                    </div>
+
+                    <div class="flex items-end">
+                        <button onclick="simulateOrder()"
+                                class="w-full bg-primary text-white py-3 px-4 rounded-lg hover:bg-blue-600 transition-colors">
+                            🚀 处理订单
+                        </button>
+                    </div>
+
+                    <div class="flex items-end">
+                        <button onclick="clearResults()"
+                                class="w-full bg-gray-500 text-white py-3 px-4 rounded-lg hover:bg-gray-600 transition-colors">
+                            🗑️ 清空结果
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 处理结果展示 -->
+            <div id="resultsContainer" class="hidden">
+                <!-- 处理步骤 -->
+                <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">📊 处理步骤详情</h3>
+                    <div id="processingSteps" class="space-y-4">
+                        <!-- 动态生成步骤 -->
+                    </div>
+                </div>
+
+                <!-- 最终结果 -->
+                <div class="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">🎯 订单处理结果</h3>
+                    <div id="finalResult" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <!-- 动态生成结果 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 历史记录 -->
+            <div class="bg-white rounded-lg shadow-sm p-6 mt-8">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">📋 处理历史</h3>
+                <div id="historyList" class="space-y-3">
+                    <div class="text-center text-gray-500 py-4">暂无处理记录</div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let processingHistory = [];
+
+        // 模拟订单处理
+        async function simulateOrder() {
+            const userLevel = document.getElementById('userLevel').value;
+            const amount = parseFloat(document.getElementById('orderAmount').value);
+
+            if (!amount || amount <= 0) {
+                showToast('请输入有效的订单金额', 'error');
+                return;
+            }
+
+            showLoading(true);
+
+            try {
+                const response = await fetch(`/api/orders/simulate?userLevel=${userLevel}&amount=${amount}`, {
+                    method: 'POST'
+                });
+
+                if (response.ok) {
+                    const order = await response.json();
+                    displayResults(order);
+                    addToHistory(order);
+                } else {
+                    showToast('订单处理失败', 'error');
+                }
+            } catch (error) {
+                showToast('请求失败: ' + error.message, 'error');
+            }
+
+            showLoading(false);
+        }
+
+        // 显示处理结果
+        function displayResults(order) {
+            const container = document.getElementById('resultsContainer');
+            const stepsContainer = document.getElementById('processingSteps');
+            const resultContainer = document.getElementById('finalResult');
+
+            // 显示处理步骤
+            const originalAmount = parseFloat(order.originalAmount);
+            const finalAmount = parseFloat(order.finalAmount);
+            const totalSavings = originalAmount - finalAmount;
+            const discountRate = ((totalSavings) / originalAmount * 100).toFixed(1);
+
+            // 渲染每个处理步骤
+            const stepHtml = order.processSteps.map((step, index) => {
+                const stepNumber = index + 1;
+                const beforeAmount = parseFloat(step.beforeAmount);
+                const afterAmount = parseFloat(step.afterAmount);
+                const reduction = parseFloat(step.reduction);
+
+                let stepColor = 'bg-blue-500';
+                if (stepNumber === 2) stepColor = 'bg-green-500';
+                if (stepNumber === 3) stepColor = 'bg-purple-500';
+
+                let resultText = '';
+                if (reduction > 0) {
+                    resultText = `<div class="text-right">
+                        <div class="font-semibold text-green-600">¥${beforeAmount} → ¥${afterAmount}</div>
+                        <div class="text-sm text-green-500">节省 ¥${reduction.toFixed(2)}</div>
+                    </div>`;
+                } else {
+                    resultText = `<div class="text-right">
+                        <div class="font-semibold text-gray-600">¥${beforeAmount}</div>
+                        <div class="text-sm text-gray-500">无优惠</div>
+                    </div>`;
+                }
+
+                return `
+                    <div class="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
+                        <div class="w-8 h-8 ${stepColor} text-white rounded-full flex items-center justify-center font-semibold">${stepNumber}</div>
+                        <div class="flex-1">
+                            <h4 class="font-medium">${step.stepName}</h4>
+                            <p class="text-sm text-gray-600">${step.description}</p>
+                        </div>
+                        ${resultText}
+                    </div>
+                `;
+            }).join('');
+
+            // 添加积分奖励步骤
+            const pointsStep = `
+                <div class="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
+                    <div class="w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center font-semibold">${order.processSteps.length + 1}</div>
+                    <div class="flex-1">
+                        <h4 class="font-medium">积分奖励</h4>
+                        <p class="text-sm text-gray-600">基于最终金额 ¥${finalAmount} 计算积分奖励</p>
+                    </div>
+                    <div class="text-right">
+                        <div class="font-semibold text-purple-600">+${order.pointsEarned} 积分</div>
+                        <div class="text-sm text-purple-500">积分率 ${(order.pointsEarned / finalAmount * 100).toFixed(1)}%</div>
+                    </div>
+                </div>
+            `;
+
+            stepsContainer.innerHTML = stepHtml + pointsStep;
+
+            // 显示最终结果
+            resultContainer.innerHTML = `
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-gray-900">¥${originalAmount}</div>
+                    <div class="text-sm text-gray-600">原价</div>
+                </div>
+
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-green-600">¥${finalAmount}</div>
+                    <div class="text-sm text-gray-600">最终价格</div>
+                </div>
+
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-red-500">${discountRate}%</div>
+                    <div class="text-sm text-gray-600">总折扣率</div>
+                </div>
+
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-purple-600">${order.pointsEarned}</div>
+                    <div class="text-sm text-gray-600">获得积分</div>
+                </div>
+            `;
+
+            container.classList.remove('hidden');
+        }
+
+        // 添加到历史记录
+        function addToHistory(order) {
+            processingHistory.unshift(order);
+            if (processingHistory.length > 10) {
+                processingHistory = processingHistory.slice(0, 10);
+            }
+
+            updateHistoryDisplay();
+        }
+
+        // 更新历史记录显示
+        function updateHistoryDisplay() {
+            const container = document.getElementById('historyList');
+
+            if (processingHistory.length === 0) {
+                container.innerHTML = '<div class="text-center text-gray-500 py-4">暂无处理记录</div>';
+                return;
+            }
+
+            container.innerHTML = processingHistory.map((order, index) => {
+                const totalSavings = parseFloat(order.originalAmount) - parseFloat(order.finalAmount);
+                const timestamp = new Date(order.createTime).toLocaleString();
+
+                // 计算各步骤的详细信息
+                let stepDetails = '';
+                if (order.processSteps && order.processSteps.length > 0) {
+                    const vipStep = order.processSteps[0];
+                    const fullReductionStep = order.processSteps[1];
+
+                    const vipSavings = parseFloat(vipStep.reduction || 0);
+                    const fullReductionSavings = parseFloat(fullReductionStep.reduction || 0);
+
+                    stepDetails = `VIP折扣: -¥${vipSavings.toFixed(2)} | 满减: -¥${fullReductionSavings.toFixed(2)}`;
+                } else {
+                    stepDetails = '处理详情不可用';
+                }
+
+                return `
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-8 h-8 bg-gray-400 text-white rounded-full flex items-center justify-center text-sm">
+                                ${index + 1}
+                            </div>
+                            <div>
+                                <div class="font-medium">${order.orderId}</div>
+                                <div class="text-sm text-gray-600">${timestamp}</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="font-medium">${order.userLevel} | ¥${order.originalAmount} → ¥${order.finalAmount}</div>
+                            <div class="text-sm ${totalSavings > 0 ? 'text-green-600' : 'text-gray-600'}">
+                                ${stepDetails} | +${order.pointsEarned}积分
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 清空结果
+        function clearResults() {
+            document.getElementById('resultsContainer').classList.add('hidden');
+            processingHistory = [];
+            updateHistoryDisplay();
+        }
+
+        // 显示加载状态
+        function showLoading(show) {
+            const button = document.querySelector('button[onclick="simulateOrder()"]');
+            if (show) {
+                button.disabled = true;
+                button.innerHTML = '🔄 处理中...';
+                button.classList.add('opacity-50');
+            } else {
+                button.disabled = false;
+                button.innerHTML = '🚀 处理订单';
+                button.classList.remove('opacity-50');
+            }
+        }
+
+        // 显示提示消息
+        function showToast(message, type) {
+            const toast = document.createElement('div');
+            toast.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg text-white z-50 ${type === 'success' ? 'bg-green-500' : 'bg-red-500'}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                if (document.body.contains(toast)) {
+                    document.body.removeChild(toast);
+                }
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

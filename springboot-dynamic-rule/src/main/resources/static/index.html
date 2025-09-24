@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>动态规则引擎 Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        success: '#10B981',
+                        error: '#EF4444'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-white shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16">
+                    <h1 class="text-2xl font-bold text-gray-900">🚀 动态规则引擎 Demo</h1>
+                    <nav class="flex space-x-4">
+                        <a href="/index.html" class="text-primary font-medium border-b-2 border-primary pb-1">规则管理</a>
+                        <a href="/business.html" class="text-gray-600 hover:text-primary transition-colors">业务演示</a>
+                    </nav>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- 规则列表 -->
+            <div class="bg-white rounded-lg shadow-sm p-6 mb-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-semibold text-gray-900">📋 规则列表</h2>
+                    <button onclick="showAddRuleModal()" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors">
+                        + 添加规则
+                    </button>
+                </div>
+
+                <div id="rulesList" class="space-y-4">
+                    <!-- 规则卡片将通过JavaScript动态生成 -->
+                </div>
+            </div>
+
+            <!-- 规则测试 -->
+            <div class="bg-white rounded-lg shadow-sm p-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-6">🧪 规则测试</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">选择规则</label>
+                        <select id="testRuleName" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option value="">请选择规则...</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">测试参数 (JSON格式)</label>
+                        <textarea id="testParams" rows="3"
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                                placeholder='{"userLevel": "GOLD", "price": 100}'>
+                        </textarea>
+                    </div>
+
+                    <div class="flex items-end">
+                        <button onclick="executeRule()"
+                                class="w-full bg-success text-white py-3 px-4 rounded-lg hover:bg-green-600 transition-colors">
+                            执行规则
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 执行结果 -->
+                <div id="testResult" class="hidden p-4 rounded-lg"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 编辑规则模态框 -->
+    <div id="editRuleModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg max-w-2xl w-full p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold">编辑规则</h3>
+                <button onclick="hideEditRuleModal()" class="text-gray-500 hover:text-gray-700">✕</button>
+            </div>
+
+            <form id="editRuleForm">
+                <input type="hidden" id="editRuleOriginalName">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">规则名称</label>
+                        <input type="text" id="editRuleName" required
+                               class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">状态</label>
+                        <select id="editRuleEnabled" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option value="true">启用</option>
+                            <option value="false">禁用</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">规则描述</label>
+                    <input type="text" id="editRuleDescription" required
+                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">规则脚本</label>
+                    <textarea id="editRuleScript" rows="5" required
+                              class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent font-mono text-sm"
+                              placeholder="if (condition) { return result; }"></textarea>
+                </div>
+
+                <div class="flex justify-end space-x-3">
+                    <button type="button" onclick="hideEditRuleModal()"
+                            class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                        取消
+                    </button>
+                    <button type="submit"
+                            class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-600 transition-colors">
+                        更新规则
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div id="addRuleModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg max-w-2xl w-full p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold">添加新规则</h3>
+                <button onclick="hideAddRuleModal()" class="text-gray-500 hover:text-gray-700">✕</button>
+            </div>
+
+            <form id="addRuleForm">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">规则名称</label>
+                        <input type="text" id="newRuleName" required
+                               class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">状态</label>
+                        <select id="newRuleEnabled" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option value="true">启用</option>
+                            <option value="false">禁用</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">规则描述</label>
+                    <input type="text" id="newRuleDescription" required
+                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">规则脚本</label>
+                    <textarea id="newRuleScript" rows="5" required
+                              class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent font-mono text-sm"
+                              placeholder="if (condition) { return result; }"></textarea>
+                </div>
+
+                <div class="flex justify-end space-x-3">
+                    <button type="button" onclick="hideAddRuleModal()"
+                            class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                        取消
+                    </button>
+                    <button type="submit"
+                            class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-600 transition-colors">
+                        添加规则
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let rules = [];
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadRules();
+        });
+
+        // 加载所有规则
+        async function loadRules() {
+            try {
+                const response = await fetch('/api/rules');
+                rules = await response.json();
+                renderRules();
+                updateTestRuleSelect();
+            } catch (error) {
+                showToast('加载规则失败: ' + error.message, 'error');
+            }
+        }
+
+        // 渲染规则列表
+        function renderRules() {
+            const container = document.getElementById('rulesList');
+            container.innerHTML = '';
+
+            if (rules.length === 0) {
+                container.innerHTML = '<div class="text-center text-gray-500 py-8">暂无规则，点击上方按钮添加新规则</div>';
+                return;
+            }
+
+            rules.forEach(rule => {
+                const ruleCard = document.createElement('div');
+                ruleCard.className = 'border border-gray-200 rounded-lg p-4';
+                ruleCard.innerHTML = `
+                    <div class="flex justify-between items-start mb-3">
+                        <div class="flex-1">
+                            <h3 class="font-semibold text-lg text-gray-900">${rule.ruleName}</h3>
+                            <p class="text-gray-600 text-sm">${rule.description}</p>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="px-3 py-1 rounded-full text-xs font-medium ${rule.enabled ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                ${rule.enabled ? '启用' : '禁用'}
+                            </span>
+                            <button onclick="editRule('${rule.ruleName}')" class="text-blue-500 hover:text-blue-700 text-sm font-medium">编辑</button>
+                            <button onclick="toggleRuleStatus('${rule.ruleName}', ${!rule.enabled})" class="text-orange-500 hover:text-orange-700 text-sm font-medium">
+                                ${rule.enabled ? '禁用' : '启用'}
+                            </button>
+                            <button onclick="deleteRule('${rule.ruleName}')" class="text-red-500 hover:text-red-700 text-sm font-medium">删除</button>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 rounded p-3">
+                        <pre class="text-sm text-gray-700 font-mono overflow-x-auto">${rule.script}</pre>
+                    </div>
+                    <div class="text-xs text-gray-500 mt-2">
+                        创建时间: ${new Date(rule.createTime).toLocaleString()}
+                    </div>
+                `;
+                container.appendChild(ruleCard);
+            });
+        }
+
+        // 更新测试规则选择框
+        function updateTestRuleSelect() {
+            const select = document.getElementById('testRuleName');
+            select.innerHTML = '<option value="">请选择规则...</option>';
+
+            rules.filter(rule => rule.enabled).forEach(rule => {
+                const option = document.createElement('option');
+                option.value = rule.ruleName;
+                option.textContent = rule.ruleName;
+                select.appendChild(option);
+            });
+        }
+
+        // 编辑规则
+        function editRule(ruleName) {
+            const rule = rules.find(r => r.ruleName === ruleName);
+            if (!rule) {
+                showToast('规则不存在', 'error');
+                return;
+            }
+
+            // 填充表单
+            document.getElementById('editRuleOriginalName').value = rule.ruleName;
+            document.getElementById('editRuleName').value = rule.ruleName;
+            document.getElementById('editRuleDescription').value = rule.description;
+            document.getElementById('editRuleScript').value = rule.script;
+            document.getElementById('editRuleEnabled').value = rule.enabled.toString();
+
+            // 显示模态框并设置正确的焦点
+            document.getElementById('editRuleModal').classList.remove('hidden');
+            setTimeout(() => {
+                document.getElementById('editRuleName').focus();
+            }, 100);
+        }
+
+        // 隐藏编辑规则模态框
+        function hideEditRuleModal() {
+            document.getElementById('editRuleModal').classList.add('hidden');
+            const form = document.getElementById('editRuleForm');
+            form.reset();
+            // 清空隐藏字段
+            document.getElementById('editRuleOriginalName').value = '';
+        }
+
+        // 切换规则状态
+        async function toggleRuleStatus(ruleName, enabled) {
+            const rule = rules.find(r => r.ruleName === ruleName);
+            if (!rule) {
+                showToast('规则不存在', 'error');
+                return;
+            }
+
+            const updatedRule = {
+                ruleName: rule.ruleName,
+                script: rule.script,
+                description: rule.description,
+                enabled: enabled
+            };
+
+            try {
+                const response = await fetch(`/api/rules/${ruleName}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(updatedRule)
+                });
+
+                if (response.ok) {
+                    showToast(`规则已${enabled ? '启用' : '禁用'}`, 'success');
+                    loadRules();
+                } else {
+                    const errorText = await response.text();
+                    showToast('状态切换失败: ' + errorText, 'error');
+                }
+            } catch (error) {
+                showToast('状态切换失败: ' + error.message, 'error');
+            }
+        }
+        function showAddRuleModal() {
+            document.getElementById('addRuleModal').classList.remove('hidden');
+            // 设置焦点到第一个输入框而不是脚本输入框
+            setTimeout(() => {
+                document.getElementById('newRuleName').focus();
+            }, 100);
+        }
+
+        // 隐藏添加规则模态框
+        function hideAddRuleModal() {
+            document.getElementById('addRuleModal').classList.add('hidden');
+            document.getElementById('addRuleForm').reset();
+        }
+
+        // 编辑规则表单提交
+        document.getElementById('editRuleForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const originalName = document.getElementById('editRuleOriginalName').value;
+            const ruleData = {
+                ruleName: document.getElementById('editRuleName').value,
+                script: document.getElementById('editRuleScript').value,
+                description: document.getElementById('editRuleDescription').value,
+                enabled: document.getElementById('editRuleEnabled').value === 'true'
+            };
+
+            try {
+                const response = await fetch(`/api/rules/${originalName}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(ruleData)
+                });
+
+                if (response.ok) {
+                    showToast('规则更新成功', 'success');
+                    hideEditRuleModal();
+                    loadRules();
+                } else {
+                    const errorText = await response.text();
+                    showToast('更新失败: ' + errorText, 'error');
+                }
+            } catch (error) {
+                showToast('更新失败: ' + error.message, 'error');
+            }
+        });
+        document.getElementById('addRuleForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const ruleData = {
+                ruleName: document.getElementById('newRuleName').value,
+                script: document.getElementById('newRuleScript').value,
+                description: document.getElementById('newRuleDescription').value,
+                enabled: document.getElementById('newRuleEnabled').value === 'true'
+            };
+
+            try {
+                const response = await fetch('/api/rules', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(ruleData)
+                });
+
+                if (response.ok) {
+                    showToast('规则添加成功', 'success');
+                    hideAddRuleModal();
+                    loadRules();
+                } else {
+                    const errorText = await response.text();
+                    showToast('添加失败: ' + errorText, 'error');
+                }
+            } catch (error) {
+                showToast('添加失败: ' + error.message, 'error');
+            }
+        });
+
+        // 删除规则
+        async function deleteRule(ruleName) {
+            if (!confirm(`确定要删除规则 "${ruleName}" 吗？`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/rules/${ruleName}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    showToast('规则删除成功', 'success');
+                    loadRules();
+                } else {
+                    const errorText = await response.text();
+                    showToast('删除失败: ' + errorText, 'error');
+                }
+            } catch (error) {
+                showToast('删除失败: ' + error.message, 'error');
+            }
+        }
+
+        // 执行规则测试
+        async function executeRule() {
+            const ruleName = document.getElementById('testRuleName').value;
+            const paramsText = document.getElementById('testParams').value.trim();
+            const resultDiv = document.getElementById('testResult');
+
+            if (!ruleName) {
+                showResult('请选择要执行的规则', 'error');
+                return;
+            }
+
+            let params = {};
+            if (paramsText) {
+                try {
+                    params = JSON.parse(paramsText);
+                } catch (e) {
+                    showResult('参数格式错误，请输入有效的JSON格式', 'error');
+                    return;
+                }
+            }
+
+            try {
+                const response = await fetch(`/api/rules/execute/${ruleName}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(params)
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showResult(`执行成功！结果: ${JSON.stringify(data.result, null, 2)}`, 'success');
+                } else {
+                    showResult(`执行失败: ${data.errorMessage}`, 'error');
+                }
+            } catch (error) {
+                showResult(`请求失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 显示测试结果
+        function showResult(message, type) {
+            const resultDiv = document.getElementById('testResult');
+            resultDiv.className = `p-4 rounded-lg ${type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`;
+            resultDiv.innerHTML = `<pre class="font-mono text-sm">${message}</pre>`;
+            resultDiv.classList.remove('hidden');
+        }
+
+        // 显示提示消息
+        function showToast(message, type) {
+            // 简单的Toast实现
+            const toast = document.createElement('div');
+            toast.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg text-white z-50 ${type === 'success' ? 'bg-green-500' : 'bg-red-500'}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                document.body.removeChild(toast);
+            }, 3000);
+        }
+
+        // 规则选择改变时的示例参数
+        document.getElementById('testRuleName').addEventListener('change', function() {
+            const ruleName = this.value;
+            const paramsTextarea = document.getElementById('testParams');
+
+            const examples = {
+                'vip_discount': JSON.stringify({"userLevel": "GOLD", "price": 100}, null, 2),
+                'full_reduction': JSON.stringify({"totalAmount": 150}, null, 2),
+                'points_reward': JSON.stringify({"totalAmount": 200}, null, 2)
+            };
+
+            if (examples[ruleName]) {
+                paramsTextarea.value = examples[ruleName];
+            } else {
+                paramsTextarea.value = '';
+            }
+        });
+    </script>
+</body>
+</html>
