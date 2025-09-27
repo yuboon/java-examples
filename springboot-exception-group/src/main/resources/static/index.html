@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error Fingerprint Monitor</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>🔍 Error Fingerprint Monitor</h1>
+            <div class="header-controls">
+                <button id="refreshBtn" class="btn btn-primary">刷新数据</button>
+                <button id="clearCacheBtn" class="btn btn-danger">清空缓存</button>
+            </div>
+        </header>
+
+        <!-- Overview Dashboard -->
+        <section class="overview-section">
+            <h2>📊 统计概览</h2>
+            <div class="overview-grid">
+                <div class="overview-card">
+                    <div class="card-title">总指纹数</div>
+                    <div class="card-value" id="totalFingerprints">-</div>
+                </div>
+                <div class="overview-card">
+                    <div class="card-title">总错误数</div>
+                    <div class="card-value" id="totalErrors">-</div>
+                </div>
+                <div class="overview-card">
+                    <div class="card-title">缓存使用</div>
+                    <div class="card-value" id="cacheUsage">-</div>
+                </div>
+                <div class="overview-card">
+                    <div class="card-title">最高频错误</div>
+                    <div class="card-value" id="mostFrequentError">-</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Simulation Controls -->
+        <section class="simulation-section">
+            <h2>🧪 错误模拟器</h2>
+            <div class="simulation-controls">
+                <button class="btn btn-warning simulate-btn" data-type="npe">模拟 NPE</button>
+                <button class="btn btn-warning simulate-btn" data-type="iae">模拟 IAE</button>
+                <button class="btn btn-warning simulate-btn" data-type="ioexception">模拟 IOException</button>
+                <button class="btn btn-warning simulate-btn" data-type="generic">模拟通用异常</button>
+            </div>
+            <div id="simulationResult" class="simulation-result"></div>
+        </section>
+
+        <!-- Fingerprints Table -->
+        <section class="fingerprints-section">
+            <h2>🔐 异常列表</h2>
+            <div class="table-container">
+                <table class="fingerprints-table" id="fingerprintsTable">
+                    <thead>
+                        <tr>
+                            <th>指纹 (短)</th>
+                            <th>错误计数</th>
+                            <th>首次出现</th>
+                            <th>最后出现</th>
+                            <th>样本TraceId</th>
+                            <th>最近TraceIds</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="fingerprintsTableBody">
+                        <!-- 动态填充 -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Detail Modal -->
+        <div id="detailModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>指纹详细信息</h3>
+                    <span class="close">&times;</span>
+                </div>
+                <div class="modal-body" id="modalBody">
+                    <!-- 详细信息将在这里显示 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
