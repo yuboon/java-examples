@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shamir 门限密钥共享系统 - 五门三限演示</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .share-card {
+            transition: all 0.3s ease;
+        }
+        .share-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+    <!-- Header -->
+    <header class="gradient-bg text-white py-8 shadow-lg">
+        <div class="container mx-auto px-4">
+            <h1 class="text-4xl font-bold text-center mb-2">🔐 Shamir 门限密钥共享系统</h1>
+            <p class="text-center text-purple-100">基于拉格朗日插值的五门三限算法演示</p>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-8 max-w-6xl">
+
+        <!-- 说明卡片 -->
+        <div class="bg-blue-50 border-l-4 border-blue-500 p-6 mb-8 rounded-r-lg">
+            <h2 class="text-xl font-semibold text-blue-900 mb-2">💡 什么是五门三限？</h2>
+            <p class="text-blue-800 mb-2">
+                五门三限是门限密码学的经典应用：将一个密钥拆分为 <strong>5 份密钥碎片</strong>，
+                任意 <strong>3 份</strong>即可恢复原始密钥，少于 3 份则完全无法推算。
+            </p>
+            <p class="text-blue-700 text-sm">
+                ⚠️ <strong>注意</strong>：本演示使用内存 Map 存储，实际生产环境应存储到数据库或分布式存储系统。
+            </p>
+        </div>
+
+        <!-- 两栏布局 -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+            <!-- 左侧：拆分密钥 -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                    <span class="bg-purple-500 text-white rounded-full w-8 h-8 flex items-center justify-center mr-3">1</span>
+                    拆分密钥
+                </h2>
+
+                <form id="splitForm" class="space-y-4">
+                    <!-- 密钥输入 -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            🔑 原始密钥
+                        </label>
+                        <textarea
+                            id="secretInput"
+                            rows="3"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            placeholder="输入需要保护的密钥信息，例如：数据库密码、API密钥等..."
+                        ></textarea>
+                    </div>
+
+                    <!-- 参数配置 -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                📊 总份额数 (n)
+                            </label>
+                            <input
+                                type="number"
+                                id="totalShares"
+                                value="5"
+                                min="2"
+                                max="10"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                🎯 门限值 (t)
+                            </label>
+                            <input
+                                type="number"
+                                id="threshold"
+                                value="3"
+                                min="2"
+                                max="10"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            />
+                        </div>
+                    </div>
+
+                    <!-- 提交按钮 -->
+                    <button
+                        type="submit"
+                        class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-lg transition duration-200 shadow-md hover:shadow-lg"
+                    >
+                        🚀 开始拆分
+                    </button>
+                </form>
+
+                <!-- 拆分结果 -->
+                <div id="splitResult" class="mt-6 hidden">
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                        <p class="text-green-800 font-medium" id="splitMessage"></p>
+                        <p class="text-sm text-green-600 mt-1" id="sessionId"></p>
+                    </div>
+
+                    <h3 class="font-semibold text-gray-700 mb-3">密钥碎片（请妥善保管）：</h3>
+                    <div id="sharesContainer" class="space-y-2 max-h-96 overflow-y-auto"></div>
+                </div>
+            </div>
+
+            <!-- 右侧：恢复密钥 -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                    <span class="bg-green-500 text-white rounded-full w-8 h-8 flex items-center justify-center mr-3">2</span>
+                    恢复密钥
+                </h2>
+
+                <form id="combineForm" class="space-y-4">
+                    <!-- 份额输入说明 -->
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <p class="text-sm text-yellow-800">
+                            ℹ️ 请输入至少 <strong id="requiredShares">3</strong> 个密钥份额（每行一个）
+                        </p>
+                    </div>
+
+                    <!-- 份额输入框 -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            🔐 密钥份额列表
+                        </label>
+                        <textarea
+                            id="sharesInput"
+                            rows="8"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent font-mono text-sm"
+                            placeholder="粘贴密钥份额，每行一个，例如：&#10;1:a1b2c3d4...&#10;3:e5f6g7h8...&#10;5:i9j0k1l2..."
+                        ></textarea>
+                    </div>
+
+                    <!-- 提交按钮 -->
+                    <button
+                        type="submit"
+                        class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition duration-200 shadow-md hover:shadow-lg"
+                    >
+                        🔓 恢复密钥
+                    </button>
+                </form>
+
+                <!-- 恢复结果 -->
+                <div id="combineResult" class="mt-6 hidden">
+                    <div id="combineStatus" class="rounded-lg p-4 mb-4">
+                        <p class="font-medium" id="combineMessage"></p>
+                    </div>
+
+                    <div id="recoveredSecretContainer" class="hidden">
+                        <h3 class="font-semibold text-gray-700 mb-3">✅ 恢复的密钥：</h3>
+                        <div class="bg-gray-50 border border-gray-300 rounded-lg p-4">
+                            <pre id="recoveredSecret" class="whitespace-pre-wrap break-words text-gray-800"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 技术说明 -->
+        <div class="mt-12 bg-white rounded-xl shadow-lg p-6">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">🔬 技术原理</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="border-l-4 border-blue-500 pl-4">
+                    <h3 class="font-semibold text-gray-700 mb-2">数学基础</h3>
+                    <p class="text-sm text-gray-600">
+                        基于 Shamir Secret Sharing (SSS)，利用拉格朗日插值和有限域运算
+                    </p>
+                </div>
+                <div class="border-l-4 border-purple-500 pl-4">
+                    <h3 class="font-semibold text-gray-700 mb-2">安全性保证</h3>
+                    <p class="text-sm text-gray-600">
+                        任何少于门限值的份额组合，数学上完全无法推导出原始密钥
+                    </p>
+                </div>
+                <div class="border-l-4 border-green-500 pl-4">
+                    <h3 class="font-semibold text-gray-700 mb-2">应用场景</h3>
+                    <p class="text-sm text-gray-600">
+                        金融安全、区块链多签、云密钥管理、企业权限控制
+                    </p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-gray-300 py-6 mt-12">
+        <div class="container mx-auto px-4 text-center">
+            <p class="text-sm">
+                🚀 Spring Boot + Shamir Secret Sharing Demo |
+                <a href="https://github.com" class="text-purple-400 hover:text-purple-300">GitHub</a>
+            </p>
+            <p class="text-xs mt-2 text-gray-400">
+                ⚠️ 演示系统 - 生产环境请将数据持久化到数据库
+            </p>
+        </div>
+    </footer>
+
+    <!-- JavaScript 在下一步实现 -->
+    <script src="app.js"></script>
+
+</body>
+</html>
