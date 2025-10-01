@@ -1,0 +1,15 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: license-control-system
+
+license:
+  keys:
+    private-key: classpath:keys/private.pem
+    public-key: classpath:keys/public.pem
+
+logging:
+  level:
+    com.license: DEBUG

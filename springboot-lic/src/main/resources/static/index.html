@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>许可证控制系统演示</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#64748B'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <!-- 标题 -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">许可证控制系统</h1>
+            <p class="text-gray-600">基于RSA2048的许可证生成与验证演示</p>
+        </div>
+
+        <!-- 硬件信息卡片 -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">🖥️ 当前硬件信息</h2>
+            <div id="hardwareInfo" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-gray-50 p-4 rounded">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">主板序列号</label>
+                    <span id="motherboardSerial" class="text-gray-900 font-mono">加载中...</span>
+                </div>
+                <div class="bg-gray-50 p-4 rounded">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">系统信息</label>
+                    <span id="systemInfo" class="text-gray-900 text-sm">加载中...</span>
+                </div>
+            </div>
+            <button onclick="loadHardwareInfo()"
+                    class="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition">
+                🔄 刷新硬件信息
+            </button>
+        </div>
+
+        <!-- 密钥管理区域 -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">🔐 密钥管理</h2>
+
+            <div class="mb-4">
+                <button onclick="generateKeys()"
+                        class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition mr-2">
+                    🔑 生成新密钥对
+                </button>
+                <span id="keyStatus" class="text-sm text-gray-600"></span>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">私钥 (Private Key)</label>
+                    <textarea id="privateKey" placeholder="粘贴私钥内容..."
+                              class="w-full h-32 p-3 border border-gray-300 rounded-md font-mono text-xs"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">公钥 (Public Key)</label>
+                    <textarea id="publicKey" placeholder="粘贴公钥内容..."
+                              class="w-full h-32 p-3 border border-gray-300 rounded-md font-mono text-xs"></textarea>
+                </div>
+            </div>
+
+            <button onclick="loadKeys()"
+                    class="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition">
+                📥 加载密钥
+            </button>
+        </div>
+
+        <!-- 许可证生成区域 -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">📝 许可证生成</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">软件名称</label>
+                    <input type="text" id="subject" value="MyCompany-ERP"
+                           class="w-full p-2 border border-gray-300 rounded-md">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">授权给</label>
+                    <input type="text" id="issuedTo" value="测试公司"
+                           class="w-full p-2 border border-gray-300 rounded-md">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">到期时间</label>
+                    <input type="date" id="expireAt"
+                           class="w-full p-2 border border-gray-300 rounded-md">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">功能权限 (逗号分隔)</label>
+                    <input type="text" id="features" value="REPORT,EXPORT,AI_PLUGIN"
+                           class="w-full p-2 border border-gray-300 rounded-md">
+                </div>
+            </div>
+
+            <button onclick="generateLicense()"
+                    class="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 transition">
+                ✨ 生成许可证
+            </button>
+
+            <div class="mt-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">生成的许可证</label>
+                <textarea id="generatedLicense" readonly
+                          class="w-full h-40 p-3 border border-gray-300 rounded-md font-mono text-xs bg-gray-50"
+                          placeholder="生成的许可证将显示在这里..."></textarea>
+                <button onclick="copyToClipboard('generatedLicense')"
+                        class="mt-2 bg-gray-500 text-white px-3 py-1 rounded text-sm hover:bg-gray-600 transition">
+                    📋 复制
+                </button>
+            </div>
+        </div>
+
+        <!-- 许可证验证区域 -->
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">✅ 许可证验证</h2>
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">许可证内容</label>
+                <textarea id="licenseToVerify"
+                          class="w-full h-32 p-3 border border-gray-300 rounded-md font-mono text-xs"
+                          placeholder="粘贴要验证的许可证内容..."></textarea>
+            </div>
+
+            <button onclick="verifyLicense()"
+                    class="bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600 transition">
+                🔍 验证许可证
+            </button>
+
+            <div id="verifyResult" class="mt-4"></div>
+        </div>
+    </div>
+
+    <!-- 消息提示 -->
+    <div id="toast" class="fixed top-4 right-4 max-w-sm bg-white border border-gray-200 rounded-lg shadow-lg p-4 transform translate-x-full transition-transform duration-300 z-50">
+        <div class="flex items-center">
+            <div id="toastIcon" class="mr-3"></div>
+            <div>
+                <div id="toastTitle" class="font-medium text-gray-900"></div>
+                <div id="toastMessage" class="text-sm text-gray-600"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
