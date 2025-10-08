@@ -1,0 +1,11 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: springboot-permission
+
+logging:
+  level:
+    com.example.permission: DEBUG
+    org.casbin: DEBUG

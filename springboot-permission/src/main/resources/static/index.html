@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ABAC 权限管理系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h1 class="text-3xl font-bold text-gray-800 mb-4">🧭 ABAC 权限演示系统</h1>
+            <p class="text-gray-600">基于 JCasbin 的属性访问控制演示</p>
+
+            <!-- 用户选择 -->
+            <div class="mt-4 flex gap-4 items-center">
+                <label class="font-semibold">当前用户：</label>
+                <select id="userSelect" class="border rounded px-3 py-2">
+                    <option value="">请选择用户</option>
+                    <option value="user1,zhangsan,yfb">张三（研发部）</option>
+                    <option value="user2,lisi,xsb">李四（销售部）</option>
+                    <option value="admin,admin,xzb">管理员（行政部）</option>
+                </select>
+                <button onclick="switchUser()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">切换用户</button>
+                <span id="currentUser" class="text-sm text-gray-500"></span>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="bg-white rounded-lg shadow-md mb-6">
+            <div class="flex border-b">
+                <button onclick="switchTab('documents')" id="tab-documents" class="px-6 py-3 font-semibold border-b-2 border-blue-500 text-blue-500">
+                    文档管理
+                </button>
+                <button onclick="switchTab('policies')" id="tab-policies" class="px-6 py-3 font-semibold text-gray-500 hover:text-blue-500">
+                    策略配置
+                </button>
+            </div>
+
+            <!-- 文档管理 Tab -->
+            <div id="content-documents" class="p-6">
+                <!-- 创建文档表单 -->
+                <div class="bg-gray-50 rounded p-4 mb-6">
+                    <h3 class="text-lg font-semibold mb-3">创建文档</h3>
+                    <div class="grid grid-cols-4 gap-3">
+                        <input id="docTitle" type="text" placeholder="标题" class="border rounded px-3 py-2">
+                        <input id="docOwnerId" type="text" placeholder="所有者ID" class="border rounded px-3 py-2">
+                        <input id="docDept" type="text" placeholder="部门" class="border rounded px-3 py-2">
+                        <select id="docType" class="border rounded px-3 py-2">
+                            <option value="report">报告</option>
+                            <option value="contract">合同</option>
+                            <option value="public">公开</option>
+                        </select>
+                    </div>
+                    <button onclick="createDocument()" class="mt-3 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                        创建文档
+                    </button>
+                </div>
+
+                <!-- 文档列表 -->
+                <div>
+                    <h3 class="text-lg font-semibold mb-3">文档列表</h3>
+                    <table class="w-full border-collapse">
+                        <thead>
+                            <tr class="bg-gray-200">
+                                <th class="border p-2">ID</th>
+                                <th class="border p-2">标题</th>
+                                <th class="border p-2">所有者</th>
+                                <th class="border p-2">部门</th>
+                                <th class="border p-2">类型</th>
+                                <th class="border p-2">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="documentList"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 策略配置 Tab -->
+            <div id="content-policies" class="p-6 hidden">
+                <!-- 添加策略表单 -->
+                <div class="bg-gray-50 rounded p-4 mb-6">
+                    <h3 class="text-lg font-semibold mb-3">添加策略</h3>
+                    <div class="grid grid-cols-3 gap-3">
+                        <input id="subRule" type="text" placeholder="主体规则 (如: r.sub.dept == r.obj.dept)" class="border rounded px-3 py-2">
+                        <input id="objRule" type="text" placeholder="资源规则 (如: true)" class="border rounded px-3 py-2">
+                        <select id="policyAction" class="border rounded px-3 py-2">
+                            <option value="read">read</option>
+                            <option value="edit">edit</option>
+                            <option value="delete">delete</option>
+                        </select>
+                    </div>
+                    <button onclick="addPolicy()" class="mt-3 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                        添加策略
+                    </button>
+                </div>
+
+                <!-- 策略列表 -->
+                <div>
+                    <h3 class="text-lg font-semibold mb-3">当前策略</h3>
+                    <table class="w-full border-collapse">
+                        <thead>
+                            <tr class="bg-gray-200">
+                                <th class="border p-2">主体规则</th>
+                                <th class="border p-2">资源规则</th>
+                                <th class="border p-2">操作</th>
+                                <th class="border p-2">管理</th>
+                            </tr>
+                        </thead>
+                        <tbody id="policyList"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 消息提示 -->
+        <div id="toast" class="fixed bottom-4 right-4 bg-blue-500 text-white px-6 py-3 rounded shadow-lg hidden">
+            消息内容
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
