@@ -1,0 +1,8 @@
+spring:
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+app:
+  audit:
+    enabled: true

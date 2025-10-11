@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>对象变更审计</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: "Microsoft YaHei", "PingFang SC", system-ui, -apple-system, sans-serif; }
+        code { font-family: "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+<div class="max-w-6xl mx-auto py-10 px-4 space-y-10">
+    <header class="text-center space-y-2">
+        <h1 class="text-3xl font-semibold text-emerald-400">对象变更审计</h1>
+        <p class="text-slate-400">Spring Boot 3 · Javers Diff</p>
+    </header>
+
+    <!-- 商品表单 -->
+    <section class="bg-slate-900/80 border border-slate-700 rounded-xl p-6 shadow-lg shadow-emerald-900/20">
+        <h2 class="text-xl font-semibold text-emerald-300 mb-4">创建或更新商品</h2>
+        <form id="product-form" class="grid gap-4 md:grid-cols-2">
+            <div>
+                <label for="product-id" class="block text-sm text-slate-300 mb-1">商品编号</label>
+                <input id="product-id" required class="w-full rounded-lg bg-slate-950 border border-slate-700 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="p-1001">
+            </div>
+            <div>
+                <label for="actor" class="block text-sm text-slate-300 mb-1">操作人（发送 X-User 请求头）</label>
+                <input id="actor" class="w-full rounded-lg bg-slate-950 border border-slate-700 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="alice">
+            </div>
+            <div>
+                <label for="product-name" class="block text-sm text-slate-300 mb-1">名称</label>
+                <input id="product-name" required class="w-full rounded-lg bg-slate-950 border border-slate-700 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="入门套餐">
+            </div>
+            <div>
+                <label for="product-price" class="block text-sm text-slate-300 mb-1">价格</label>
+                <input id="product-price" type="number" step="0.01" min="0" required class="w-full rounded-lg bg-slate-950 border border-slate-700 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="19.99">
+            </div>
+            <div class="md:col-span-2">
+                <label for="product-description" class="block text-sm text-slate-300 mb-1">描述</label>
+                <textarea id="product-description" rows="3" class="w-full rounded-lg bg-slate-950 border border-slate-700 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="填写商品说明"></textarea>
+            </div>
+            <div class="md:col-span-2 flex justify-end items-center gap-3">
+                <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-emerald-500 text-slate-900 font-semibold px-4 py-2 hover:bg-emerald-400 transition">
+                    保存商品
+                </button>
+            </div>
+        </form>
+    </section>
+
+    <!-- 商品列表 -->
+    <section class="bg-slate-900/80 border border-slate-700 rounded-xl p-6 shadow-lg shadow-emerald-900/20">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h2 class="text-xl font-semibold text-emerald-300">商品列表</h2>
+                <p class="text-sm text-slate-400">点击「查看审计」可只查看指定商品的历史</p>
+            </div>
+            <button id="refresh-products" class="text-sm text-emerald-400 hover:text-emerald-200 transition">刷新数据</button>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-slate-800 text-sm">
+                <thead class="bg-slate-900">
+                <tr>
+                    <th class="px-4 py-2 text-left font-medium text-slate-400 uppercase tracking-wider">编号</th>
+                    <th class="px-4 py-2 text-left font-medium text-slate-400 uppercase tracking-wider">名称</th>
+                    <th class="px-4 py-2 text-left font-medium text-slate-400 uppercase tracking-wider">价格</th>
+                    <th class="px-4 py-2 text-left font-medium text-slate-400 uppercase tracking-wider">描述</th>
+                    <th class="px-4 py-2 text-left font-medium text-slate-400 uppercase tracking-wider">操作</th>
+                </tr>
+                </thead>
+                <tbody id="products-body" class="divide-y divide-slate-800"></tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- 审计时间线 -->
+    <section class="bg-slate-900/80 border border-slate-700 rounded-xl p-6 shadow-lg shadow-emerald-900/20">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div>
+                <h2 class="text-xl font-semibold text-emerald-300">审计时间线</h2>
+                <p id="audit-filter-label" class="text-sm text-slate-400">当前：全部记录</p>
+            </div>
+            <div class="space-x-4">
+                <button id="refresh-audits" class="text-sm text-emerald-400 hover:text-emerald-200 transition">刷新审计</button>
+                <button id="clear-audit-filter" class="text-sm text-slate-400 hover:text-slate-200 transition">显示全部</button>
+            </div>
+        </div>
+        <div id="audit-list" class="space-y-4"></div>
+    </section>
+</div>
+
+<!-- 审计卡片模板 -->
+<template id="audit-item-template">
+    <article class="border border-slate-800 rounded-xl bg-slate-950/70 px-5 py-4 shadow">
+        <div class="flex flex-wrap justify-between items-start gap-2">
+            <div class="space-y-1">
+                <div class="flex items-center gap-2">
+                    <span class="text-sm font-medium text-slate-300" data-field="entity"></span>
+                    <span class="text-xs px-2 py-0.5 rounded-full font-semibold" data-field="action-badge"></span>
+                </div>
+                <div class="flex items-center gap-4 text-xs text-slate-400" data-field="meta"></div>
+            </div>
+            <time class="text-xs text-slate-500" data-field="time"></time>
+        </div>
+        <div class="mt-3 space-y-2">
+            <ul class="space-y-1 text-sm text-slate-200" data-field="changes"></ul>
+            <details class="bg-slate-900/60 border border-slate-800 rounded-lg">
+                <summary class="cursor-pointer select-none px-3 py-2 text-xs text-slate-400 hover:text-emerald-300 transition">
+                    查看原始 Diff JSON
+                </summary>
+                <pre class="overflow-x-auto text-xs leading-5 text-slate-300 px-3 pb-3" data-field="diff-json"></pre>
+            </details>
+        </div>
+    </article>
+</template>
+
+<script>
+    const API_BASE = 'http://localhost:8080/api';
+
+    const productForm = document.getElementById('product-form');
+    const productsBody = document.getElementById('products-body');
+    const auditList = document.getElementById('audit-list');
+    const auditTemplate = document.getElementById('audit-item-template');
+    const auditFilterLabel = document.getElementById('audit-filter-label');
+
+    const productId = document.getElementById('product-id');
+    const productName = document.getElementById('product-name');
+    const productPrice = document.getElementById('product-price');
+    const productDescription = document.getElementById('product-description');
+    const actorInput = document.getElementById('actor');
+
+    let currentAuditFilter = null;
+
+    productForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const id = productId.value.trim();
+        if (!id) {
+            alert('请填写商品编号');
+            return;
+        }
+        const payload = {
+            name: productName.value.trim(),
+            price: parseFloat(productPrice.value),
+            description: productDescription.value.trim()
+        };
+
+        try {
+            const response = await fetch(`${API_BASE}/products/${encodeURIComponent(id)}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(actorInput.value ? {'X-User': actorInput.value.trim()} : {})
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                let message = '保存失败';
+                try {
+                    const error = await response.json();
+                    message = error.message || message;
+                } catch (_) {
+                    // ignore
+                }
+                alert(message);
+                return;
+            }
+
+            productForm.reset();
+            loadProducts();
+            loadAudits(currentAuditFilter);
+        } catch (error) {
+            console.error(error);
+            alert('无法连接后端，请检查网络或控制台。');
+        }
+    });
+
+    document.getElementById('refresh-products').addEventListener('click', (event) => {
+        event.preventDefault();
+        loadProducts();
+    });
+
+    document.getElementById('refresh-audits').addEventListener('click', (event) => {
+        event.preventDefault();
+        loadAudits(currentAuditFilter);
+    });
+
+    document.getElementById('clear-audit-filter').addEventListener('click', (event) => {
+        event.preventDefault();
+        loadAudits(null);
+    });
+
+    async function loadProducts() {
+        try {
+            const response = await fetch(`${API_BASE}/products`);
+            const data = await response.json();
+            productsBody.innerHTML = '';
+            if (Array.isArray(data) && data.length) {
+                for (const product of data) {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="px-4 py-2">${product.id}</td>
+                        <td class="px-4 py-2">${product.name ?? ''}</td>
+                        <td class="px-4 py-2">${product.price ?? ''}</td>
+                        <td class="px-4 py-2">${product.description ?? ''}</td>
+                        <td class="px-4 py-2 text-right space-x-3">
+                            <button class="text-emerald-400 hover:text-emerald-200 text-xs" data-action="view-audit" data-id="${product.id}">查看审计</button>
+                            <button class="text-rose-400 hover:text-rose-200 text-xs" data-action="delete" data-id="${product.id}">删除</button>
+                        </td>
+                    `;
+                    row.querySelector('[data-action="view-audit"]').addEventListener('click', () => loadAudits(product.id));
+                    row.querySelector('[data-action="delete"]').addEventListener('click', () => deleteProduct(product.id));
+                    productsBody.appendChild(row);
+                }
+            } else {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td colspan="5" class="px-4 py-4 text-center text-sm text-slate-500">暂无商品，先尝试创建一个吧。</td>`;
+                productsBody.appendChild(row);
+            }
+        } catch (error) {
+            console.error(error);
+            productsBody.innerHTML = `<tr><td colspan="5" class="px-4 py-4 text-center text-sm text-rose-300">商品数据加载失败。</td></tr>`;
+        }
+    }
+
+    async function loadAudits(productId) {
+        currentAuditFilter = productId || null;
+        auditFilterLabel.textContent = currentAuditFilter ? `当前：商品 ${currentAuditFilter}` : '当前：全部记录';
+
+        const url = currentAuditFilter
+            ? `${API_BASE}/products/${encodeURIComponent(currentAuditFilter)}/audits`
+            : `${API_BASE}/products/audits`;
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+            auditList.innerHTML = '';
+            if (!Array.isArray(data) || !data.length) {
+                auditList.innerHTML = `<p class="text-sm text-slate-500">暂无审计记录。</p>`;
+                return;
+            }
+            for (const log of data.slice().reverse()) {
+                const node = auditTemplate.content.cloneNode(true);
+                node.querySelector('[data-field="entity"]').textContent = `${log.entityType} | ${log.entityId}`;
+                node.querySelector('[data-field="time"]').textContent = formatDateTime(log.occurredAt);
+
+                const actionBadge = node.querySelector('[data-field="action-badge"]');
+                const actionStyle = actionStyleMap(log.action);
+                actionBadge.textContent = log.action;
+                actionBadge.className = `text-xs px-2 py-0.5 rounded-full font-semibold ${actionStyle}`;
+
+                node.querySelector('[data-field="meta"]').innerHTML = `
+                    <span>操作者：${log.actor ?? 'anonymous'}</span>
+                    <span>审计编号：${log.id}</span>
+                `;
+
+                node.querySelector('[data-field="diff-json"]').textContent = beautifyJson(log.diffJson);
+
+                const changesList = node.querySelector('[data-field="changes"]');
+                renderDiffChanges(changesList, log.diffJson, log.action);
+
+                auditList.appendChild(node);
+            }
+        } catch (error) {
+            console.error(error);
+            auditList.innerHTML = `<p class="text-sm text-rose-300">审计记录加载失败。</p>`;
+        }
+    }
+
+    function renderDiffChanges(container, diffJson, action) {
+        container.innerHTML = '';
+        if (!diffJson) {
+            container.appendChild(renderChangeLine('未获取到 Diff 数据'));
+            return;
+        }
+
+        let diff;
+        try {
+            diff = JSON.parse(diffJson);
+        } catch (error) {
+            console.error('Diff JSON 解析失败', error);
+            container.appendChild(renderChangeLine('Diff JSON 解析失败'));
+            return;
+        }
+
+        const changes = Array.isArray(diff.changes) ? diff.changes : [];
+        if (!changes.length) {
+            container.appendChild(renderChangeLine(action === 'DELETE' ? '对象已删除' : '未检测到字段差异'));
+            return;
+        }
+
+        const formatted = changes.flatMap(describeChange);
+        if (!formatted.length) {
+            container.appendChild(renderChangeLine('暂未支持的变更类型，详见原始 Diff JSON'));
+            return;
+        }
+
+        formatted.forEach(line => container.appendChild(renderChangeLine(line)));
+    }
+
+    function renderChangeLine(text) {
+        const li = document.createElement('li');
+        li.textContent = text;
+        return li;
+    }
+
+    function describeChange(change) {
+        const type = change.changeType || change.changeTypeValue || change.changeTypeName || 'UNKNOWN';
+        switch (type) {
+            case 'NewObject':
+                return ['新建了该对象'];
+            case 'ObjectRemoved':
+                return ['对象被彻底删除'];
+            case 'ValueChange':
+                return [`字段「${change.property}」从 ${formatValue(extractValue(change, ['left', 'oldValue', 'previous']))} 调整为 ${formatValue(extractValue(change, ['right', 'newValue', 'value']))}`];
+            case 'InitialValueChange':
+                return [`字段「${change.property}」初始设定为 ${formatValue(extractValue(change, ['right', 'newValue', 'value']))}`];
+            case 'TerminalValueChange':
+                return [`字段「${change.property}」最终清空（原值：${formatValue(extractValue(change, ['left', 'oldValue', 'previous']))}）`];
+            case 'ReferenceChange':
+                return [`引用字段「${change.property}」从 ${formatValue(extractValue(change, ['left', 'oldValue', 'previous']))} 切换为 ${formatValue(extractValue(change, ['right', 'newValue', 'value']))}`];
+            case 'ListChange':
+                return describeListChange(change);
+            case 'SetChange':
+                return describeListChange(change);
+            default:
+                return [`未识别的变更类型 ${type}`];
+        }
+    }
+
+    function extractValue(change, keys) {
+        for (const key of keys) {
+            if (key in change) {
+                return change[key];
+            }
+        }
+        return undefined;
+    }
+
+    function describeListChange(change) {
+        const property = change.property || '集合';
+        const elements = Array.isArray(change.elementChanges) ? change.elementChanges : [];
+        if (!elements.length) {
+            return [`${property} 列表发生了结构变化`];
+        }
+        return elements.map(element => {
+            const elementValue = element.element ?? element.value ?? element;
+            const readable = formatValue(elementValue);
+            switch (element.changeType) {
+                case 'ValueAdded':
+                    return `列表「${property}」新增：${readable}`;
+                case 'ValueRemoved':
+                    return `列表「${property}」移除：${readable}`;
+                case 'ElementValueChange':
+                    return `列表「${property}」元素修改：${readable}`;
+                default:
+                    return `列表「${property}」变化：${JSON.stringify(element)}`;
+            }
+        });
+    }
+
+    function formatValue(value) {
+        if (value === null || value === undefined) {
+            return 'null';
+        }
+        if (typeof value === 'object') {
+            try {
+                return JSON.stringify(value);
+            } catch (_) {
+                return '[对象]';
+            }
+        }
+        return value;
+    }
+
+    function beautifyJson(json) {
+        try {
+            return JSON.stringify(JSON.parse(json), null, 2);
+        } catch (_) {
+            return json;
+        }
+    }
+
+    function actionStyleMap(action) {
+        switch (action) {
+            case 'CREATE':
+                return 'bg-emerald-400/20 text-emerald-300 border border-emerald-400/40';
+            case 'UPDATE':
+                return 'bg-sky-400/20 text-sky-300 border border-sky-400/40';
+            case 'DELETE':
+                return 'bg-rose-400/20 text-rose-300 border border-rose-400/40';
+            default:
+                return 'bg-slate-700 text-slate-200';
+        }
+    }
+
+    function formatDateTime(isoString) {
+        if (!isoString) return '';
+        const date = new Date(isoString);
+        if (Number.isNaN(date.getTime())) {
+            return isoString;
+        }
+        return new Intl.DateTimeFormat('zh-CN', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        }).format(date);
+    }
+
+    async function deleteProduct(id) {
+        const confirmed = confirm(`确定删除商品 ${id} 吗？`);
+        if (!confirmed) {
+            return;
+        }
+        try {
+            const response = await fetch(`${API_BASE}/products/${encodeURIComponent(id)}`, {
+                method: 'DELETE',
+                headers: actorInput.value ? {'X-User': actorInput.value.trim()} : {}
+            });
+            if (response.status === 404) {
+                alert('商品不存在。');
+                return;
+            }
+            if (!response.ok && response.status !== 204) {
+                alert('删除失败。');
+                return;
+            }
+            loadProducts();
+            loadAudits(currentAuditFilter);
+        } catch (error) {
+            console.error(error);
+            alert('删除时出现异常。');
+        }
+    }
+
+    loadProducts();
+    loadAudits(null);
+</script>
+</body>
+</html>
