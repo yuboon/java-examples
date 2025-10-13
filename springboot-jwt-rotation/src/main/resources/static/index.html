@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JWT 密钥轮换演示系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .loading { opacity: 0.6; pointer-events: none; }
+        .json-view {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            white-space: pre-wrap;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg">
+        <div class="container mx-auto px-4 py-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-key text-3xl"></i>
+                    <div>
+                        <h1 class="text-2xl font-bold">JWT 动态密钥轮换演示</h1>
+                        <p class="text-blue-100 text-sm">RSA 2048 + KID + 定时轮换</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span id="connectionStatus" class="flex items-center">
+                        <span class="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
+                        <span class="text-sm">已连接</span>
+                    </span>
+                    <button id="refreshStatus" class="bg-white/20 hover:bg-white/30 px-3 py-1 rounded text-sm transition">
+                        <i class="fas fa-sync-alt mr-1"></i>刷新
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-8">
+        <!-- Navigation Tabs -->
+        <div class="bg-white rounded-lg shadow-md mb-6">
+            <div class="flex border-b">
+                <button class="tab-btn px-6 py-3 font-medium text-blue-600 border-b-2 border-blue-600" data-tab="login">
+                    <i class="fas fa-sign-in-alt mr-2"></i>用户登录
+                </button>
+                <button class="tab-btn px-6 py-3 font-medium text-gray-600 hover:text-blue-600" data-tab="protected">
+                    <i class="fas fa-shield-alt mr-2"></i>受保护资源
+                </button>
+                <button class="tab-btn px-6 py-3 font-medium text-gray-600 hover:text-blue-600" data-tab="keyInfo">
+                    <i class="fas fa-info-circle mr-2"></i>密钥信息
+                </button>
+                <button class="tab-btn px-6 py-3 font-medium text-gray-600 hover:text-blue-600" data-tab="token">
+                    <i class="fas fa-ticket-alt mr-2"></i>Token解析
+                </button>
+                <button class="tab-btn px-6 py-3 font-medium text-gray-600 hover:text-blue-600" data-tab="admin">
+                    <i class="fas fa-cogs mr-2"></i>管理功能
+                </button>
+            </div>
+        </div>
+
+        <!-- Tab Contents -->
+        <div class="tab-content-wrapper">
+            <!-- Login Tab -->
+            <div id="login" class="tab-content active">
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-lg shadow-md p-6">
+                        <h2 class="text-xl font-bold mb-4 text-gray-800">
+                            <i class="fas fa-user-circle mr-2 text-blue-600"></i>用户登录
+                        </h2>
+                        <form id="loginForm" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">用户名</label>
+                                <input type="text" id="username" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="输入用户名" required>
+                                <p class="text-xs text-gray-500 mt-1">测试用户: admin, user, test</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">密码</label>
+                                <input type="password" id="password" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="输入密码" required>
+                                <p class="text-xs text-gray-500 mt-1">对应密码: password, 123456, test</p>
+                            </div>
+                            <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-200 font-medium">
+                                <i class="fas fa-sign-in-alt mr-2"></i>登录
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow-md p-6">
+                        <h2 class="text-xl font-bold mb-4 text-gray-800">
+                            <i class="fas fa-info-circle mr-2 text-green-600"></i>登录状态
+                        </h2>
+                        <div id="loginStatus" class="space-y-3">
+                            <div class="text-gray-500 text-center py-8">
+                                <i class="fas fa-user-slash text-4xl mb-3"></i>
+                                <p>尚未登录</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Protected Resource Tab -->
+            <div id="protected" class="tab-content">
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-xl font-bold mb-4 text-gray-800">
+                        <i class="fas fa-shield-alt mr-2 text-green-600"></i>受保护资源访问
+                    </h2>
+                    <div class="mb-4">
+                        <button id="accessProtected" class="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition duration-200">
+                            <i class="fas fa-lock-open mr-2"></i>访问受保护资源
+                        </button>
+                    </div>
+                    <div id="protectedResult" class="json-view">点击按钮访问受保护资源...</div>
+                </div>
+            </div>
+
+            <!-- Key Info Tab -->
+            <div id="keyInfo" class="tab-content">
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-xl font-bold mb-4 text-gray-800">
+                        <i class="fas fa-key mr-2 text-purple-600"></i>密钥存储信息
+                    </h2>
+                    <div class="mb-4">
+                        <button id="refreshKeyInfo" class="bg-purple-600 text-white py-2 px-4 rounded-md hover:bg-purple-700 transition duration-200">
+                            <i class="fas fa-sync-alt mr-2"></i>刷新密钥信息
+                        </button>
+                    </div>
+                    <div id="keyInfoResult" class="json-view">点击按钮获取密钥信息...</div>
+                </div>
+            </div>
+
+            <!-- Token Tab -->
+            <div id="token" class="tab-content">
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-xl font-bold mb-4 text-gray-800">
+                        <i class="fas fa-ticket-alt mr-2 text-orange-600"></i>Token 解析工具
+                    </h2>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Authorization Header</label>
+                        <div class="flex space-x-2">
+                            <input type="text" id="tokenInput" class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Bearer eyJhbGciOiJSUzI1NiJ9...">
+                            <button id="parseToken" class="bg-orange-600 text-white py-2 px-4 rounded-md hover:bg-orange-700 transition duration-200">
+                                <i class="fas fa-search mr-2"></i>解析
+                            </button>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">输入完整的 Authorization Header 或仅 Token</p>
+                    </div>
+                    <div id="tokenResult" class="json-view">输入Token进行解析...</div>
+                </div>
+            </div>
+
+            <!-- Admin Tab -->
+            <div id="admin" class="tab-content">
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-lg shadow-md p-6">
+                        <h2 class="text-xl font-bold mb-4 text-gray-800">
+                            <i class="fas fa-sync mr-2 text-red-600"></i>密钥轮换管理
+                        </h2>
+                        <div class="space-y-3">
+                            <button id="rotateKeys" class="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition duration-200">
+                                <i class="fas fa-redo mr-2"></i>手动轮换密钥
+                            </button>
+                            <button id="cleanupKeys" class="w-full bg-yellow-600 text-white py-2 px-4 rounded-md hover:bg-yellow-700 transition duration-200">
+                                <i class="fas fa-broom mr-2"></i>清理过期密钥
+                            </button>
+                        </div>
+                        <div id="adminResult" class="mt-4 json-view text-sm">点击按钮执行管理操作...</div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow-md p-6">
+                        <h2 class="text-xl font-bold mb-4 text-gray-800">
+                            <i class="fas fa-vial mr-2 text-indigo-600"></i>测试工具
+                        </h2>
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">测试用户名</label>
+                                <input type="text" id="testUsername" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" value="demoUser" placeholder="输入测试用户名">
+                            </div>
+                            <button id="generateTestToken" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-200">
+                                <i class="fas fa-plus-circle mr-2"></i>生成测试Token
+                            </button>
+                        </div>
+                        <div id="testResult" class="mt-4 json-view text-sm">点击按钮生成测试Token...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Info -->
+        <div class="mt-6 bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-bold mb-4 text-gray-800">
+                <i class="fas fa-server mr-2 text-gray-600"></i>系统信息
+            </h2>
+            <div id="systemInfo" class="grid md:grid-cols-3 gap-4">
+                <div class="text-center py-4 text-gray-500">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p class="mt-2">加载中...</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white mt-12 py-6">
+        <div class="container mx-auto px-4 text-center">
+            <p class="text-sm">JWT 密钥轮换演示系统 - RSA 2048 + Spring Boot</p>
+            <p class="text-xs text-gray-400 mt-2">展示动态密钥轮换、多版本密钥共存、用户无感知的安全升级</p>
+        </div>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>

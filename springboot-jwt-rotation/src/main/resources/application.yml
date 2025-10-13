@@ -1,0 +1,25 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: jwt-rotation-demo
+
+# JWT配置
+jwt:
+  # Token过期时间（小时）
+  token-expiration: 24
+  # 密钥轮换周期（天）
+  rotation-period-days: 7
+  # 旧密钥保留时间（天）
+  grace-period-days: 14
+  # RSA密钥长度
+  key-size: 2048
+
+# 日志配置
+logging:
+  level:
+    com.example.jwt: DEBUG
+    io.jsonwebtoken: DEBUG
