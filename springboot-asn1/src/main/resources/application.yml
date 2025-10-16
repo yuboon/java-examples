@@ -1,0 +1,51 @@
+spring:
+  application:
+    name: springboot-asn1-parser
+
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+# 日志配置
+logging:
+  level:
+    ROOT: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/springboot-asn1-parser.log
+    max-size: 10MB
+    max-history: 30
+
+# 应用信息
+info:
+  app:
+    name: SpringBoot ASN.1解析工具
+    version: 1.0.0
+    description: 基于SpringBoot和BouncyCastle的ASN.1在线解析工具
+    author: 
+  build:
+    timestamp: ${maven.build.timestamp}
+  java:
+    version: ${java.version}
+
+# 自定义配置
+asn1:
+  parser:
+    # 最大输入数据大小（字节）
+    max-input-size: 1048576  # 1MB
+    # 解析超时时间（毫秒）
+    parse-timeout: 30000
+    # 是否启用详细日志
+    verbose-logging: false
+    # 支持的编码类型
+    supported-encodings:
+      - BASE64
+      - HEX
+    # 缓存配置
+    cache:
+      enabled: true
+      max-size: 1000
+      ttl: 3600

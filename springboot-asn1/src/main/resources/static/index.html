@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASN.1在线解析工具 - SpringBoot实现</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <h1><i class="fas fa-code"></i> ASN.1在线解析工具</h1>
+                <p>基于SpringBoot和BouncyCastle实现 | 支持BER、DER等编码规则</p>
+            </div>
+            <div class="header-links">
+                <a href="#docs" class="btn btn-outline"><i class="fas fa-book"></i> 使用文档</a>
+            </div>
+        </header>
+
+        <main>
+            <div class="grid-container">
+                <section class="input-section">
+                    <h2><i class="fas fa-upload"></i> 输入ASN.1数据</h2>
+
+                    <div class="encoding-selector">
+                        <label for="encodingType">
+                            <i class="fas fa-cog"></i> 编码类型：
+                        </label>
+                        <select id="encodingType">
+                            <option value="HEX">HEX（十六进制）</option>
+                            <option value="BASE64" selected>Base64</option>
+                        </select>
+                    </div>
+
+                    <div class="textarea-container">
+                        <div class="textarea-header">
+                            <label for="asn1Input">
+                                <i class="fas fa-keyboard"></i> ASN.1数据
+                            </label>
+                            <div class="input-actions">
+                                <button id="clearBtn" class="btn btn-small btn-secondary" title="清空">
+                                    <i class="fas fa-eraser"></i>
+                                </button>
+                                <button id="pasteBtn" class="btn btn-small btn-secondary" title="粘贴">
+                                    <i class="fas fa-paste"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <textarea
+                            id="asn1Input"
+                            placeholder="请输入ASN.1数据（HEX格式，例如：308201023081d9...）&#10;或点击下方示例按钮加载示例数据"
+                            spellcheck="false"
+                        ></textarea>
+
+                        <div class="sample-data">
+                            <h3><i class="fas fa-flask"></i> 示例数据：</h3>
+                            <div class="sample-buttons">
+                                <button class="sample-btn" data-sample="cert">
+                                    <i class="fas fa-hashtag"></i> CERT
+                                </button>
+                                <button class="sample-btn" data-sample="integer">
+                                    <i class="fas fa-hashtag"></i> INTEGER
+                                </button>
+                                <button class="sample-btn" data-sample="sequence">
+                                    <i class="fas fa-list"></i> SEQUENCE
+                                </button>
+                                <button class="sample-btn" data-sample="utf8string">
+                                    <i class="fas fa-font"></i> UTF8字符串
+                                </button>
+                                <button class="sample-btn" data-sample="oid">
+                                    <i class="fas fa-fingerprint"></i> OID
+                                </button>
+                                <button class="sample-btn" data-sample="boolean">
+                                    <i class="fas fa-toggle-on"></i> BOOLEAN
+                                </button>
+                                <button class="sample-btn" data-sample="null">
+                                    <i class="fas fa-ban"></i> NULL
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="options">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="verbose">
+                            <span class="checkmark"></span>
+                            <span><i class="fas fa-info-circle"></i> 详细输出（显示类名等信息）</span>
+                        </label>
+                    </div>
+
+                    <button id="parseBtn" class="parse-btn">
+                        <i class="fas fa-search"></i>
+                        <span>解析ASN.1</span>
+                    </button>
+                </section>
+
+                <section class="result-section">
+                    <h2><i class="fas fa-chart-line"></i> 解析结果</h2>
+
+                    <div class="result-toolbar">
+                        <div class="result-actions">
+                            <button id="expandAllBtn" class="btn btn-small" title="展开全部">
+                                <i class="fas fa-expand"></i>
+                            </button>
+                            <button id="collapseAllBtn" class="btn btn-small" title="折叠全部">
+                                <i class="fas fa-compress"></i>
+                            </button>
+                            <button id="copyBtn" class="btn btn-small" title="复制结果">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                            <button id="downloadBtn" class="btn btn-small" title="下载结果">
+                                <i class="fas fa-download"></i>
+                            </button>
+                        </div>
+                        <div class="result-stats" id="resultStats" style="display: none;">
+                            <span id="parseTime"></span>
+                            <span id="dataSize"></span>
+                        </div>
+                    </div>
+
+                    <div id="resultContainer" class="result-container">
+                        <div class="placeholder">
+                            <i class="fas fa-info-circle"></i>
+                            <p>解析结果将在这里显示...</p>
+                            <p>请在左侧输入ASN.1数据并点击解析按钮</p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+
+        <section id="docs" class="docs-section">
+            <h2><i class="fas fa-book"></i> 使用文档</h2>
+
+            <div class="docs-grid">
+                <div class="doc-card">
+                    <h3><i class="fas fa-code"></i> 支持的ASN.1类型</h3>
+                    <ul>
+                        <li><code>SEQUENCE</code> - 序列类型</li>
+                        <li><code>SET</code> - 集合类型</li>
+                        <li><code>INTEGER</code> - 整数类型</li>
+                        <li><code>OCTET STRING</code> - 八位字节串</li>
+                        <li><code>UTF8String</code> - UTF-8字符串</li>
+                        <li><code>PrintableString</code> - 可打印字符串</li>
+                        <li><code>OBJECT IDENTIFIER</code> - 对象标识符</li>
+                        <li><code>BIT STRING</code> - 位串</li>
+                        <li><code>BOOLEAN</code> - 布尔值</li>
+                        <li><code>NULL</code> - 空值</li>
+                        <li><code>UTCTime</code> - UTC时间</li>
+                        <li><code>GeneralizedTime</code> - 通用时间</li>
+                    </ul>
+                </div>
+
+                <div class="doc-card">
+                    <h3><i class="fas fa-exchange-alt"></i> 支持的编码格式</h3>
+                    <ul>
+                        <li><strong>HEX</strong> - 十六进制编码（推荐）</li>
+                        <li><strong>Base64</strong> - Base64编码</li>
+                        <li><strong>RAW</strong> - 原始字符串编码</li>
+                    </ul>
+                    <p>HEX格式示例：<code>020101</code>（表示整数1）</p>
+                </div>
+
+                <div class="doc-card">
+                    <h3><i class="fas fa-cogs"></i> 编码规则</h3>
+                    <ul>
+                        <li><strong>BER</strong> - 基本编码规则</li>
+                        <li><strong>DER</strong> - 唯一编码规则</li>
+                        <li>工具会自动检测可能的编码规则</li>
+                    </ul>
+                </div>
+
+                <div class="doc-card">
+                    <h3><i class="fas fa-keyboard"></i> 快捷键</h3>
+                    <ul>
+                        <li><kbd>Ctrl + Enter</kbd> - 快速解析</li>
+                        <li><kbd>Ctrl + V</kbd> - 粘贴数据</li>
+                        <li><kbd>Ctrl + L</kbd> - 清空输入</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <footer>
+            <div class="footer-content">
+                <div class="footer-info">
+                    <p>SpringBoot ASN.1解析工具</p>
+                </div>
+                <div class="footer-links">
+                    <a href="/api/asn1/info" target="_blank">API文档</a>
+                    <a href="/api/asn1/health" target="_blank">健康检查</a>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
