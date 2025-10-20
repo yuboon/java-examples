@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>双端口应用测试平台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+
+        .card-hover:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        .tab-active {
+            border-bottom: 3px solid #3b82f6;
+            color: #3b82f6;
+        }
+
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- 导航栏 -->
+    <nav class="bg-white shadow-lg sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 flex items-center">
+                        <i class="fas fa-server text-blue-600 text-2xl mr-2"></i>
+                        <span class="text-xl font-bold text-gray-800">双端口测试平台</span>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span id="connectionStatus" class="text-sm px-3 py-1 rounded-full bg-green-100 text-green-800">
+                        <i class="fas fa-circle text-green-500 mr-1"></i>
+                        已连接
+                    </span>
+                    <button id="themeToggle" class="text-gray-600 hover:text-gray-900">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主容器 -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- 服务选择标签 -->
+        <div class="bg-white rounded-lg shadow-md mb-6">
+            <div class="border-b border-gray-200">
+                <nav class="flex -mb-px">
+                    <button class="tab-btn tab-active px-6 py-3 text-sm font-medium transition-colors duration-200"
+                            data-service="user">
+                        <i class="fas fa-user mr-2"></i>用户端 (8082)
+                    </button>
+                    <button class="tab-btn px-6 py-3 text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors duration-200"
+                            data-service="admin">
+                        <i class="fas fa-cog mr-2"></i>管理端 (8083)
+                    </button>
+                </nav>
+            </div>
+        </div>
+
+        <!-- 用户端内容 -->
+        <div id="userContent" class="service-content">
+            <!-- 用户端功能标签 -->
+            <div class="bg-white rounded-lg shadow-md mb-6">
+                <div class="border-b border-gray-200">
+                    <nav class="flex -mb-px overflow-x-auto">
+                        <button class="user-tab tab-active px-4 py-2 text-sm font-medium whitespace-nowrap"
+                                data-page="products">
+                            <i class="fas fa-shopping-bag mr-2"></i>商品浏览
+                        </button>
+                        <button class="user-tab px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 whitespace-nowrap"
+                                data-page="cart">
+                            <i class="fas fa-shopping-cart mr-2"></i>购物车
+                        </button>
+                        <button class="user-tab px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 whitespace-nowrap"
+                                data-page="search">
+                            <i class="fas fa-search mr-2"></i>商品搜索
+                        </button>
+                    </nav>
+                </div>
+            </div>
+
+            <!-- 用户端页面容器 -->
+            <div id="userPageContainer">
+                <!-- 动态加载页面内容 -->
+            </div>
+        </div>
+
+        <!-- 管理端内容 -->
+        <div id="adminContent" class="service-content hidden">
+            <!-- 管理端功能标签 -->
+            <div class="bg-white rounded-lg shadow-md mb-6">
+                <div class="border-b border-gray-200">
+                    <nav class="flex -mb-px overflow-x-auto">
+                        <button class="admin-tab tab-active px-4 py-2 text-sm font-medium whitespace-nowrap"
+                                data-page="products">
+                            <i class="fas fa-box mr-2"></i>商品管理
+                        </button>
+                        <button class="admin-tab px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 whitespace-nowrap"
+                                data-page="statistics">
+                            <i class="fas fa-chart-bar mr-2"></i>统计分析
+                        </button>
+                        <button class="admin-tab px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 whitespace-nowrap"
+                                data-page="system">
+                            <i class="fas fa-tachometer-alt mr-2"></i>系统监控
+                        </button>
+                    </nav>
+                </div>
+            </div>
+
+            <!-- 管理端页面容器 -->
+            <div id="adminPageContainer">
+                <!-- 动态加载页面内容 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 通知提示 -->
+    <div id="notification" class="fixed top-20 right-4 z-50 hidden">
+        <div class="bg-white rounded-lg shadow-lg p-4 flex items-center space-x-3 min-w-[300px]">
+            <div id="notificationIcon"></div>
+            <div>
+                <p id="notificationTitle" class="font-medium text-gray-900"></p>
+                <p id="notificationMessage" class="text-sm text-gray-600"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 加载指示器 -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
+        <div class="bg-white rounded-lg p-6 flex flex-col items-center">
+            <div class="loading-spinner mb-4"></div>
+            <p class="text-gray-700">加载中...</p>
+        </div>
+    </div>
+
+    <!-- JavaScript 模块 -->
+    <script src="js/api.js"></script>
+    <script src="js/state.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/pages/user-products.js"></script>
+    <script src="js/pages/user-cart.js"></script>
+    <script src="js/pages/user-search.js"></script>
+    <script src="js/pages/admin-products.js"></script>
+    <script src="js/pages/admin-statistics.js"></script>
+    <script src="js/pages/admin-system.js"></script>
+    <script src="js/app.js"></script>
+
+    <script>
+        // 等待所有依赖加载完成后再初始化应用
+        function waitForDependencies() {
+            return new Promise((resolve) => {
+                const checkDependencies = () => {
+                    // 检查所有必需的全局对象
+                    const deps = {
+                        App: typeof App,
+                        app: typeof app,
+                        AppClass: typeof AppClass,
+                        uiManager: typeof uiManager,
+                        appState: typeof appState,
+                        userApi: typeof userApi,
+                        adminApi: typeof adminApi
+                    };
+
+                    console.log('检查依赖:', deps);
+
+                    // 检查所有依赖是否都已加载
+                    const allLoaded = deps.app === 'object' &&
+                                     deps.uiManager === 'object' &&
+                                     deps.appState === 'object' &&
+                                     deps.userApi === 'object' &&
+                                     deps.adminApi === 'object';
+
+                    if (allLoaded) {
+                        console.log('所有依赖已加载完成');
+                        resolve();
+                    } else {
+                        console.log('等待依赖加载...');
+                        setTimeout(checkDependencies, 50);
+                    }
+                };
+
+                checkDependencies();
+            });
+        }
+
+        // 初始化应用
+        document.addEventListener('DOMContentLoaded', async function() {
+            console.log('DOM加载完成，等待依赖加载...');
+
+            try {
+                // 等待所有依赖加载完成
+                await waitForDependencies();
+
+                console.log('开始初始化应用...');
+
+                // 直接使用已有的app实例或创建新的
+                let appInstance;
+
+                if (typeof window.app !== 'undefined') {
+                    appInstance = window.app;
+                    console.log('使用现有的app实例');
+                } else if (typeof App === 'function') {
+                    appInstance = new App();
+                    window.app = appInstance;
+                    console.log('创建新的app实例');
+                }
+
+                console.log('App实例:', typeof appInstance);
+                console.log('App.init方法:', typeof appInstance?.init);
+
+                if (appInstance && typeof appInstance.init === 'function') {
+                    await appInstance.init();
+                    console.log('应用初始化完成');
+                } else {
+                    console.error('无法初始化应用，手动加载初始页面');
+                    // 手动加载初始页面
+                    if (typeof uiManager !== 'undefined') {
+                        uiManager.switchUserPage('products');
+                    }
+                }
+            } catch (error) {
+                console.error('应用初始化失败:', error);
+            }
+        });
+    </script>
+</body>
+</html>

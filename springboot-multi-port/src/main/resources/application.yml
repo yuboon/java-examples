@@ -1,0 +1,37 @@
+# 多端口应用配置
+server:
+  port: 8082  # 主端口（用户端）
+
+# 双端口自定义配置
+dual:
+  port:
+    user-port: 8082
+    admin-port: 8083
+
+# Spring配置
+spring:
+  application:
+    name: multi-port-application
+  profiles:
+    active: default
+
+# Actuator配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+# 日志配置
+logging:
+  level:
+    com.example.multiport: DEBUG
+    org.springframework.web: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/multi-port-app.log
