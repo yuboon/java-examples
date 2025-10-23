@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>动态表单系统 - SpringBoot + JSON Schema</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg">
+        <div class="container mx-auto px-4 py-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <i class="fas fa-wpforms text-3xl"></i>
+                    <div>
+                        <h1 class="text-2xl font-bold">动态表单系统</h1>
+                        <p class="text-blue-100 text-sm">基于 SpringBoot + JSON Schema</p>
+                    </div>
+                </div>
+                <button onclick="showStatistics()" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-4 py-2 rounded-lg transition-all">
+                    <i class="fas fa-chart-bar mr-2"></i>统计信息
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-8">
+        <!-- Form Selection -->
+        <section class="mb-8">
+            <div class="bg-white rounded-xl shadow-md p-6">
+                <h2 class="text-xl font-semibold mb-4 flex items-center">
+                    <i class="fas fa-list-alt mr-3 text-blue-600"></i>
+                    选择表单
+                </h2>
+                <div id="formList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="text-center py-8 text-gray-500">
+                        <div class="loading-spinner mx-auto mb-4"></div>
+                        <p>正在加载表单列表...</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Form Container - 初始隐藏 -->
+        <section id="formContainer" class="hidden">
+            <div class="bg-white rounded-xl shadow-md p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 id="formTitle" class="text-2xl font-bold text-gray-800"></h2>
+                        <p id="formDescription" class="text-gray-600 mt-1"></p>
+                    </div>
+                    <button onclick="closeForm()" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+
+                <!-- Success Message -->
+                <div id="successMessage" class="hidden bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg mb-6">
+                    <div class="flex items-center">
+                        <i class="fas fa-check-circle mr-2"></i>
+                        <span id="successText"></span>
+                    </div>
+                </div>
+
+                <!-- Form Content -->
+                <form id="dynamicForm" class="space-y-6">
+                    <!-- 表单字段将在这里动态生成 -->
+                </form>
+
+                <!-- Form Actions -->
+                <div class="flex justify-end space-x-4 mt-8 pt-6 border-t">
+                    <button type="button" onclick="resetForm()" class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                        <i class="fas fa-redo mr-2"></i>重置
+                    </button>
+                    <button type="submit" onclick="submitForm(event)" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                        <i class="fas fa-paper-plane mr-2"></i>提交
+                    </button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Statistics Modal -->
+    <div id="statisticsModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold">
+                        <i class="fas fa-chart-bar mr-2 text-blue-600"></i>
+                        系统统计信息
+                    </h3>
+                    <button onclick="closeStatistics()" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                <div id="statisticsContent">
+                    <!-- 统计内容将在这里动态生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white mt-16">
+        <div class="container mx-auto px-4 py-8">
+            <div class="text-center">
+                <p class="text-gray-400">
+                    <i class="fas fa-code mr-2"></i>
+                    动态表单系统 - 基于 SpringBoot + JSON Schema 构建
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: dynamic-form-system
+
+# 自定义配置
+form:
+  cache:
+    max-size: 1000
+    expire-minutes: 30
+
+logging:
+  level:
+    com.example.dynamicform: DEBUG
+    org.springframework.web: DEBUG
