@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timing Wheel 时间轮监控面板</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .timing-wheel {
+            width: 400px;
+            height: 400px;
+            position: relative;
+            background: conic-gradient(
+                from 0deg,
+                rgba(59, 130, 246, 0.1) 0deg,
+                rgba(59, 130, 246, 0.2) 90deg,
+                rgba(59, 130, 246, 0.1) 180deg,
+                rgba(59, 130, 246, 0.2) 270deg,
+                rgba(59, 130, 246, 0.1) 360deg
+            );
+            border-radius: 50%;
+            border: 2px solid rgba(59, 130, 246, 0.3);
+            margin: 0 auto;
+        }
+
+        .slot {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #60a5fa;
+            transform-origin: 200px 200px;
+            transition: all 0.3s ease;
+            left: 197px;
+            top: 197px;
+        }
+
+        .slot.active {
+            background: #f59e0b;
+            box-shadow: 0 0 10px #f59e0b;
+        }
+
+        .slot.has-tasks {
+            background: #10b981;
+            box-shadow: 0 0 8px #10b981;
+        }
+
+        .slot.current {
+            background: #ef4444;
+            box-shadow: 0 0 12px #ef4444;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .metric-card {
+            transition: all 0.3s ease;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 三列等高容器 */
+        .equal-height-row {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .equal-height-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 自定义滚动条 */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+
+        /* 响应式调整 */
+        @media (max-width: 1024px) {
+            .equal-height-row {
+                flex-direction: column;
+            }
+
+            .timing-wheel {
+                width: 350px;
+                height: 350px;
+            }
+
+            .slot {
+                transform-origin: 175px 175px;
+                left: 172px;
+                top: 172px;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <!-- 顶部导航 -->
+    <header class="bg-blue-600 text-white shadow-lg">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <i class="fas fa-clock text-2xl"></i>
+                    <h1 class="text-2xl font-bold">Timing Wheel 时间轮监控面板</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span id="currentTime" class="text-sm"></span>
+                    <button onclick="toggleAutoRefresh()" class="bg-blue-500 hover:bg-blue-700 px-4 py-2 rounded transition-colors">
+                        <i class="fas fa-sync-alt mr-2"></i>
+                        <span id="refreshStatus">自动刷新: 开启</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="container mx-auto px-4 py-6">
+        <!-- 上部分：三列等高，底部对齐 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <!-- 左侧：时间轮可视化 -->
+            <div class="equal-height-row">
+                <div class="bg-white rounded-lg shadow-lg p-6 metric-card equal-height-content">
+                    <h2 class="text-xl font-bold mb-4 text-gray-800">
+                        <i class="fas fa-circle-notch mr-2 text-blue-500"></i>
+                        时间轮可视化
+                    </h2>
+                    <div class="flex justify-center items-center flex-1">
+                        <div class="timing-wheel" id="timingWheel">
+                            <div class="absolute inset-0 flex items-center justify-center">
+                                <div class="text-center">
+                                    <div class="text-2xl font-bold text-blue-600" id="currentSlot">0</div>
+                                    <div class="text-sm text-gray-600">当前槽位</div>
+                                    <div class="mt-2 text-xs text-gray-500">
+                                        <div>总槽位: <span id="totalSlots">512</span></div>
+                                        <div>间隔: <span id="tickDuration">100</span>ms</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 槽位图例 -->
+                    <div class="mt-6 flex justify-center space-x-4 text-sm">
+                        <div class="flex items-center">
+                            <div class="w-3 h-3 bg-blue-400 rounded-full mr-2"></div>
+                            <span>空闲</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                            <span>有任务</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-3 h-3 bg-red-500 rounded-full mr-2 animate-pulse"></div>
+                            <span>当前</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 中间：统计信息和性能趋势 -->
+            <div class="equal-height-row">
+                <div class="bg-white rounded-lg shadow-lg p-6 metric-card equal-height-content">
+                    <h2 class="text-xl font-bold mb-4 text-gray-800">
+                        <i class="fas fa-chart-line mr-2 text-purple-500"></i>
+                        实时统计与性能趋势
+                    </h2>
+
+                    <!-- 统计卡片 -->
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div class="bg-blue-50 p-4 rounded-lg">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-gray-600">总任务数</p>
+                                    <p class="text-2xl font-bold text-blue-600" id="totalTasks">0</p>
+                                </div>
+                                <i class="fas fa-tasks text-blue-500 text-xl"></i>
+                            </div>
+                        </div>
+
+                        <div class="bg-green-50 p-4 rounded-lg">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-gray-600">已完成</p>
+                                    <p class="text-2xl font-bold text-green-600" id="completedTasks">0</p>
+                                </div>
+                                <i class="fas fa-check-circle text-green-500 text-xl"></i>
+                            </div>
+                        </div>
+
+                        <div class="bg-red-50 p-4 rounded-lg">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-gray-600">失败任务</p>
+                                    <p class="text-2xl font-bold text-red-600" id="failedTasks">0</p>
+                                </div>
+                                <i class="fas fa-times-circle text-red-500 text-xl"></i>
+                            </div>
+                        </div>
+
+                        <div class="bg-yellow-50 p-4 rounded-lg">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-gray-600">活跃任务</p>
+                                    <p class="text-2xl font-bold text-yellow-600" id="activeTasks">0</p>
+                                </div>
+                                <i class="fas fa-spinner text-yellow-500 text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 执行统计 -->
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold mb-3 text-gray-700">执行统计</h3>
+                        <div id="executionStats" class="space-y-3">
+                            <!-- 执行统计将通过JS动态填充 -->
+                        </div>
+                    </div>
+
+                    <!-- 性能图表 - 占满剩余空间 -->
+                    <div class="flex-1 flex flex-col">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold text-gray-700">性能趋势</h3>
+                            <div class="flex space-x-2">
+                                <button onclick="resetChartData()" class="text-sm bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded transition-colors">
+                                    <i class="fas fa-redo mr-1"></i>重置
+                                </button>
+                                <select id="chartType" onchange="changeChartType()" class="text-sm border border-gray-300 rounded px-2 py-1">
+                                    <option value="line">折线图</option>
+                                    <option value="bar">柱状图</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3 flex flex-wrap gap-2 text-xs">
+                            <label class="flex items-center">
+                                <input type="checkbox" checked onchange="toggleChartDataset(0, this.checked)" class="mr-1">
+                                <span class="w-3 h-3 bg-yellow-500 rounded-full inline-block mr-1"></span>
+                                活跃任务
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" checked onchange="toggleChartDataset(1, this.checked)" class="mr-1">
+                                <span class="w-3 h-3 bg-green-500 rounded-full inline-block mr-1"></span>
+                                已完成任务
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" checked onchange="toggleChartDataset(2, this.checked)" class="mr-1">
+                                <span class="w-3 h-3 bg-red-500 rounded-full inline-block mr-1"></span>
+                                失败任务
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" checked onchange="toggleChartDataset(3, this.checked)" class="mr-1">
+                                <span class="w-3 h-3 bg-purple-500 rounded-full inline-block mr-1"></span>
+                                完成率
+                            </label>
+                        </div>
+                        <div class="relative flex-1 bg-gray-50 rounded-lg p-4">
+                            <canvas id="performanceChart"></canvas>
+                        </div>
+                        <div class="mt-3 text-xs text-gray-600 text-center">
+                            显示最近15个时间点的数据 • 每2秒更新一次
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧：系统信息和任务管理 -->
+            <div class="equal-height-row">
+                <div class="bg-white rounded-lg shadow-lg p-6 metric-card equal-height-content">
+                    <h2 class="text-xl font-bold mb-4 text-gray-800">
+                        <i class="fas fa-cogs mr-2 text-orange-500"></i>
+                        系统信息与任务管理
+                    </h2>
+
+                    <!-- 系统信息 -->
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold mb-3 text-gray-700">系统信息</h3>
+                        <div id="systemInfo" class="space-y-3 custom-scrollbar" style="max-height: 200px; overflow-y: auto;">
+                            <!-- 系统信息将通过JS动态填充 -->
+                        </div>
+                    </div>
+
+                    <!-- 任务管理 -->
+                    <div class="flex-1 flex flex-col">
+                        <h3 class="text-lg font-semibold mb-3 text-gray-700">任务管理</h3>
+
+                        <!-- 创建示例任务 -->
+                        <div class="mb-4">
+                            <h4 class="text-sm font-medium mb-2 text-gray-600">创建示例任务</h4>
+                            <div class="space-y-2">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">任务类型</label>
+                                    <select id="taskType" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                                        <option value="simple">简单任务</option>
+                                        <option value="calculation">计算任务</option>
+                                        <option value="io">IO任务</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">延迟时间 (ms)</label>
+                                    <input type="number" id="taskDelay" value="1000" min="100" max="30000"
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                                </div>
+                                <button onclick="createSampleTask()"
+                                        class="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded transition-colors text-sm">
+                                    <i class="fas fa-plus mr-2"></i>创建任务
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 批量创建任务 -->
+                        <div class="mb-4">
+                            <h4 class="text-sm font-medium mb-2 text-gray-600">批量创建任务</h4>
+                            <div class="space-y-2">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">任务数量</label>
+                                    <input type="number" id="batchCount" value="10" min="1" max="1000"
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                                </div>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-700 mb-1">最小延迟 (ms)</label>
+                                        <input type="number" id="minDelay" value="1000" min="100"
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-700 mb-1">最大延迟 (ms)</label>
+                                        <input type="number" id="maxDelay" value="10000" min="100"
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                                    </div>
+                                </div>
+                                <button onclick="createBatchTasks()"
+                                        class="w-full bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded transition-colors text-sm">
+                                    <i class="fas fa-layer-group mr-2"></i>批量创建
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 自定义任务 -->
+                        <div class="flex-1 flex flex-col">
+                            <h4 class="text-sm font-medium mb-2 text-gray-600">自定义任务</h4>
+                            <div class="space-y-2">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">任务描述</label>
+                                    <input type="text" id="customDescription" placeholder="输入任务描述"
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                                </div>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-700 mb-1">延迟 (ms)</label>
+                                        <input type="number" id="customDelay" value="2000" min="100"
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-700 mb-1">动作</label>
+                                        <select id="customAction" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                                            <option value="log">日志记录</option>
+                                            <option value="calc">计算任务</option>
+                                            <option value="sleep">延迟等待</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <button onclick="createCustomTask()"
+                                        class="w-full bg-purple-500 hover:bg-purple-600 text-white font-medium py-2 px-4 rounded transition-colors text-sm">
+                                    <i class="fas fa-cog mr-2"></i>创建自定义任务
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 下部分：活跃任务列表占满一行 -->
+        <div class="bg-white rounded-lg shadow-lg p-6 metric-card">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h2 class="text-xl font-bold text-gray-800">
+                        <i class="fas fa-list mr-2 text-teal-500"></i>
+                        活跃任务列表
+                    </h2>
+                    <p class="text-sm text-gray-600 mt-1">
+                        当前共有 <span id="activeTasksCount" class="font-semibold text-teal-600">0</span> 个活跃任务
+                    </p>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button onclick="refreshTasks()" class="text-blue-500 hover:text-blue-700" title="刷新任务列表">
+                        <i class="fas fa-sync-alt mr-1"></i>刷新
+                    </button>
+                    <button onclick="cleanupTasks()" class="text-red-500 hover:text-red-700" title="清理已完成任务">
+                        <i class="fas fa-trash mr-1"></i>清理
+                    </button>
+                    <div class="text-sm text-gray-600">
+                        <span class="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs mr-2">
+                            实时更新
+                        </span>
+                        <span class="inline-block bg-green-100 text-green-800 px-2 py-1 rounded text-xs">
+                            只显示未完成任务
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 任务列表网格显示 -->
+            <div id="activeTasksList" class="custom-scrollbar" style="height: 400px; overflow-y: auto;">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    <!-- 任务卡片将通过JS动态填充 -->
+                </div>
+                <div id="emptyState" class="flex flex-col items-center justify-center py-16 text-gray-500">
+                    <i class="fas fa-inbox text-6xl mb-4 text-gray-300"></i>
+                    <p class="text-lg font-medium">暂无活跃任务</p>
+                    <p class="text-sm mt-2">创建一些任务开始监控时间轮的运行状态</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部：压力测试工具 -->
+        <div class="mt-6 bg-white rounded-lg shadow-lg p-6 metric-card">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">
+                    <i class="fas fa-tachometer-alt mr-2 text-red-500"></i>
+                    压力测试工具
+                </h2>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">任务数量</label>
+                    <input type="number" id="stressTaskCount" value="1000" min="100" max="10000"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">最小延迟 (ms)</label>
+                    <input type="number" id="stressMinDelay" value="100" min="10"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">最大延迟 (ms)</label>
+                    <input type="number" id="stressMaxDelay" value="2000" min="100"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <button onclick="performStressTest()"
+                            class="w-full bg-red-500 hover:bg-red-600 text-white font-medium py-2.5 px-4 rounded transition-colors h-[42px]">
+                        <i class="fas fa-rocket mr-2"></i>开始测试
+                    </button>
+                </div>
+                <div id="stressTestResults" class="flex items-center md:col-span-2">
+                    <!-- 压力测试结果将在这里显示 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 通知提示 -->
+    <div id="notification" class="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg transform translate-x-full transition-transform duration-300 z-50">
+        <div class="flex items-center">
+            <i class="fas fa-check-circle mr-2"></i>
+            <span id="notificationText">操作成功</span>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

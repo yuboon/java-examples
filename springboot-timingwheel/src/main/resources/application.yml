@@ -1,0 +1,23 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: springboot-timingwheel
+# Timing Wheel Configuration
+timingwheel:
+  config:
+    slot-size: 512
+    tick-duration: 100
+    worker-threads: 4
+    enable-multi-wheel: true
+    enable-metrics: true
+
+logging:
+  level:
+    com.example.timingwheel: DEBUG
+    org.springframework.web: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

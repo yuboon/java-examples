@@ -1,0 +1,143 @@
+/* 自定义样式补充 */
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* 动画效果 */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.slide-in {
+    animation: slideIn 0.3s ease-out;
+}
+
+/* 加载动画 */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading {
+    animation: spin 1s linear infinite;
+}
+
+/* 悬浮效果 */
+.hover-lift {
+    transition: transform 0.2s ease;
+}
+
+.hover-lift:hover {
+    transform: translateY(-2px);
+}
+
+/* 状态指示器 */
+.status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 8px;
+}
+
+.status-indicator.online {
+    background-color: #10b981;
+    box-shadow: 0 0 6px #10b981;
+}
+
+.status-indicator.offline {
+    background-color: #ef4444;
+}
+
+.status-indicator.warning {
+    background-color: #f59e0b;
+    box-shadow: 0 0 6px #f59e0b;
+}
+
+/* 脉冲动画 */
+@keyframes ping {
+    75%, 100% {
+        transform: scale(2);
+        opacity: 0;
+    }
+}
+
+.ping {
+    animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .timing-wheel {
+        width: 300px;
+        height: 300px;
+    }
+
+    .slot {
+        width: 6px;
+        height: 6px;
+    }
+
+    .metric-card {
+        margin-bottom: 1rem;
+    }
+}
+
+@media (max-width: 640px) {
+    .timing-wheel {
+        width: 250px;
+        height: 250px;
+    }
+
+    .container {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+    .bg-white {
+        background-color: #1f2937 !important;
+    }
+
+    .text-gray-800 {
+        color: #f3f4f6 !important;
+    }
+
+    .text-gray-600 {
+        color: #9ca3af !important;
+    }
+
+    .bg-gray-50 {
+        background-color: #374151 !important;
+    }
+
+    .border-gray-300 {
+        border-color: #4b5563 !important;
+    }
+}
