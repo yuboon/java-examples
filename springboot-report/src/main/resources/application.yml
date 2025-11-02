@@ -1,0 +1,16 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: report-platform
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/test_db?useSSL=false
+    username: root
+    password: root
+
+logging:
+  level:
+    com.example.report: INFO

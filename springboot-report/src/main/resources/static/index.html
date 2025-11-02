@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>轻量级BI报表平台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <style>
+        /* 拖拽样式优化 */
+        .sortable-ghost {
+            opacity: 0.4;
+            background: #eff6ff !important;
+            border: 2px dashed #3b82f6 !important;
+        }
+
+        .sortable-chosen {
+            background: #dbeafe !important;
+            border-color: #3b82f6 !important;
+            transform: scale(1.02);
+        }
+
+        .dragging {
+            opacity: 0.5;
+            cursor: grabbing !important;
+        }
+
+        .drag-over {
+            background-color: #f0f9ff;
+            border-color: #3b82f6;
+            background: linear-gradient(45deg, #f0f9ff 25%, transparent 25%),
+                        linear-gradient(-45deg, #f0f9ff 25%, transparent 25%),
+                        linear-gradient(45deg, transparent 75%, #f0f9ff 75%),
+                        linear-gradient(-45deg, transparent 75%, #f0f9ff 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+
+        /* 滚动条样式 */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 3px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* 字段标签样式 */
+        .field-tag {
+            transition: all 0.2s ease;
+            cursor: grab;
+        }
+
+        .field-tag:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .field-tag:active {
+            cursor: grabbing;
+            transform: scale(1.05);
+        }
+
+        /* 动画效果 */
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .slide-in {
+            animation: slideIn 0.3s ease-out;
+        }
+
+        /* 图表按钮样式 */
+        .chart-type-btn {
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .chart-type-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .chart-type-btn:hover::before {
+            left: 100%;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
+    <!-- 头部导航 -->
+    <header class="bg-white shadow-lg border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                    </div>
+                    <h1 class="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">轻量级BI报表平台</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2 bg-green-50 px-3 py-1 rounded-full">
+                        <div id="connectionStatus" class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <span class="text-sm font-medium text-green-700">已连接</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主要内容区 -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="space-y-8">
+            <!-- 数据源配置区域 -->
+            <section class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden slide-in">
+                <div class="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4">
+                    <h2 class="text-lg font-semibold text-white flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"></path>
+                        </svg>
+                        数据源配置
+                    </h2>
+                </div>
+                <div class="p-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                        <!-- 数据库和表选择 -->
+                        <div class="lg:col-span-1 space-y-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+                                    </svg>
+                                    数据库
+                                </label>
+                                <select id="databaseSelect" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
+                                    <option value="">选择数据库...</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                                    </svg>
+                                    数据表
+                                </label>
+                                <select id="tableSelect" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all" disabled>
+                                    <option value="">选择数据表...</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- 可用字段区域 -->
+                        <div class="lg:col-span-3">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="text-sm font-semibold text-gray-700 flex items-center">
+                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                                    </svg>
+                                    可用字段
+                                </h3>
+                                <span class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">拖拽到下方维度或指标区域</span>
+                            </div>
+                            <div id="availableFields" class="h-40 overflow-y-auto border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50 custom-scrollbar">
+                                <div class="flex items-center justify-center h-full">
+                                    <p class="text-gray-400 text-center">
+                                        <svg class="w-12 h-12 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                                        </svg>
+                                        请先选择数据表
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 查询配置区域 -->
+            <section class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden slide-in">
+                <div class="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-4">
+                    <h2 class="text-lg font-semibold text-white flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+                        </svg>
+                        查询配置
+                    </h2>
+                </div>
+                <div class="p-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <!-- 维度配置 -->
+                        <div>
+                            <div class="flex items-center mb-3">
+                                <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-2">
+                                    <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+                                    </svg>
+                                </div>
+                                <h3 class="text-sm font-semibold text-gray-700">维度字段</h3>
+                            </div>
+                            <div id="dimensions" class="min-h-[120px] border-2 border-dashed border-blue-300 rounded-lg p-4 bg-blue-50 custom-scrollbar">
+                                <p class="text-gray-400 text-sm text-center">拖拽维度字段到此处</p>
+                            </div>
+                        </div>
+
+                        <!-- 指标配置 -->
+                        <div>
+                            <div class="flex items-center mb-3">
+                                <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center mr-2">
+                                    <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                    </svg>
+                                </div>
+                                <h3 class="text-sm font-semibold text-gray-700">指标字段</h3>
+                            </div>
+                            <div id="metrics" class="min-h-[120px] border-2 border-dashed border-green-300 rounded-lg p-4 bg-green-50 custom-scrollbar">
+                                <p class="text-gray-400 text-sm text-center">拖拽指标字段到此处</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 图表类型选择 -->
+                    <div class="mt-8">
+                        <div class="flex items-center mb-4">
+                            <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center mr-2">
+                                <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path>
+                                </svg>
+                            </div>
+                            <h3 class="text-sm font-semibold text-gray-700">图表类型</h3>
+                        </div>
+                        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                            <button class="chart-type-btn px-4 py-3 bg-white border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm font-medium text-gray-700" data-type="table">
+                                <svg class="w-5 h-5 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                                </svg>
+                                表格
+                            </button>
+                            <button class="chart-type-btn px-4 py-3 bg-white border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm font-medium text-gray-700" data-type="bar">
+                                <svg class="w-5 h-5 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                柱状图
+                            </button>
+                            <button class="chart-type-btn px-4 py-3 bg-white border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm font-medium text-gray-700" data-type="line">
+                                <svg class="w-5 h-5 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path>
+                                </svg>
+                                折线图
+                            </button>
+                            <button class="chart-type-btn px-4 py-3 bg-white border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm font-medium text-gray-700" data-type="pie">
+                                <svg class="w-5 h-5 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path>
+                                </svg>
+                                饼图
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 高级配置（维度显示控制） -->
+                    <div id="dimensionControl" class="mt-6 p-4 bg-gray-50 rounded-lg hidden">
+                        <h3 class="text-sm font-semibold text-gray-700 mb-3">图表维度配置</h3>
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">X轴维度</label>
+                                <select id="xAxisDimension" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="">选择X轴维度...</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">分组维度</label>
+                                <div id="groupDimensions" class="space-y-2 p-2 bg-white rounded-lg border border-gray-200 max-h-20 overflow-y-auto custom-scrollbar">
+                                    <p class="text-gray-500 text-sm">请先选择X轴维度</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 表格设置 -->
+                    <div id="tableControls" class="mt-6 p-4 bg-gray-50 rounded-lg hidden">
+                        <h3 class="text-sm font-semibold text-gray-700 mb-3">表格设置</h3>
+                        <label class="flex items-center cursor-pointer">
+                            <input type="checkbox" id="enableGrouping" class="mr-3 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                            <div>
+                                <span class="text-sm font-medium text-gray-700">启用维度分组</span>
+                                <p class="text-xs text-gray-500">按维度对数据分组显示，支持展开/折叠查看明细</p>
+                            </div>
+                        </label>
+                    </div>
+
+                    <!-- 执行查询按钮 -->
+                    <div class="mt-8 flex justify-center">
+                        <button id="queryBtn" class="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transform transition-all hover:scale-105 active:scale-95">
+                            <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                            </svg>
+                            执行查询
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 查询结果区域 -->
+            <section class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden slide-in">
+                <div class="bg-gradient-to-r from-green-600 to-teal-600 px-6 py-4">
+                    <h2 class="text-lg font-semibold text-white flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v1a1 1 0 001 1h4a1 1 0 001-1v-1m3-2V8a2 2 0 00-2-2H8a2 2 0 00-2 2v8m5 4h2a2 2 0 002-2v-1a2 2 0 00-2-2H9a2 2 0 00-2 2v1a2 2 0 002 2z"></path>
+                        </svg>
+                        查询结果
+                    </h2>
+                </div>
+                <div class="p-6">
+                    <div id="chartContainer" class="w-full min-h-[500px] flex items-center justify-center">
+                        <div class="text-center">
+                            <svg class="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v1a1 1 0 001 1h4a1 1 0 001-1v-1m3-2V8a2 2 0 00-2-2H8a2 2 0 00-2 2v8m5 4h2a2 2 0 002-2v-1a2 2 0 00-2-2H9a2 2 0 00-2 2v1a2 2 0 002 2z"></path>
+                            </svg>
+                            <p class="text-gray-500 text-lg font-medium">配置查询条件后点击执行查询</p>
+                            <p class="text-gray-400 text-sm mt-1">选择数据源、配置维度和指标，然后选择图表类型</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- 优化后的加载遮罩 -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-xl p-8 shadow-2xl flex flex-col items-center space-y-4">
+            <div class="relative">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <div class="absolute inset-0 rounded-full border-2 border-blue-200"></div>
+            </div>
+            <div class="text-center">
+                <span class="text-gray-700 font-medium">正在查询数据...</span>
+                <p class="text-gray-500 text-sm mt-1">请稍候片刻</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
