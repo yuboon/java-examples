@@ -1,0 +1,78 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /
+    encoding:
+      charset: UTF-8
+      enabled: true
+
+spring:
+  application:
+    name: springboot-column-encryption
+
+  # 数据库配置
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password: password
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      idle-timeout: 300000
+      connection-timeout: 20000
+
+  # H2 控制台配置
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+      settings:
+        web-allow-others: true
+
+  # SQL 初始化配置 - 只初始化表结构
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:sql/schema.sql
+      encoding: UTF-8
+
+  # Jackson 配置
+  jackson:
+    default-property-inclusion: non_null
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+
+# MyBatis 配置
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.example.encryption.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    # 启用自动映射
+    auto-mapping-behavior: partial
+    # 启用延迟加载
+    lazy-loading-enabled: true
+    # 设置超时时间
+    default-statement-timeout: 30
+    # 设置获取数据的策略
+    default-fetch-size: 100
+
+# 日志配置
+logging:
+  level:
+    com.example.encryption: INFO
+    com.example.encryption.interceptor: INFO
+    org.apache.ibatis: DEBUG
+    org.springframework.web: INFO
+    root: INFO
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n"
+
+# 字段级加密配置
+encryption:
+  enabled: true
+  algorithm: AES-GCM
+  secret-key: MySecretKey12345MySecretKey12345

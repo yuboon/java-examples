@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spring Boot 字段级加密演示</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .loading { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .slide-up { animation: slideUp 0.3s ease-out; }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <!-- 导航栏 -->
+    <nav class="bg-white shadow-lg sticky top-0 z-50 border-b border-gray-100">
+        <div class="max-w-full px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <div class="flex items-center">
+                        <i class="fas fa-shield-alt text-indigo-600 text-xl mr-3"></i>
+                        <h1 class="text-lg font-bold text-gray-900">Spring Boot 字段级加密演示</h1>
+                    </div>
+                    <div class="hidden sm:flex ml-6 items-center space-x-4">
+                        <span class="text-sm text-gray-500 bg-indigo-50 px-2 py-1 rounded-full">@Encrypted 注解</span>
+                        <span class="text-sm text-gray-500 bg-green-50 px-2 py-1 rounded-full">透明加解密</span>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <div id="connectionStatus" class="flex items-center bg-gray-50 px-3 py-2 rounded-lg">
+                        <div class="w-2 h-2 bg-gray-400 rounded-full mr-2" id="statusDot"></div>
+                        <span class="text-xs text-gray-600" id="statusText">检查中...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主容器 -->
+    <div class="max-w-full px-4 sm:px-6 lg:px-8 py-8">
+        <!-- 系统信息卡片 -->
+        <div class="bg-white rounded-xl shadow-md p-6 mb-8 fade-in">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-900 mb-2">系统特性</h2>
+                    <div id="systemInfo" class="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm text-gray-600">
+                        <div class="flex items-center">
+                            <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                            <span>自动字段加密</span>
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                            <span>透明加解密</span>
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                            <span>AES-GCM 加密</span>
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                            <span>零代码侵入</span>
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                            <span>MyBatis 集成</span>
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                            <span>可热更新密钥</span>
+                        </div>
+                    </div>
+                </div>
+                <button onclick="loadStats()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition duration-200">
+                    <i class="fas fa-chart-bar mr-2"></i>刷新统计
+                </button>
+            </div>
+        </div>
+
+        <!-- 统计信息 -->
+        <div id="statsContainer" class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <!-- 统计卡片将通过 JavaScript 动态生成 -->
+        </div>
+
+        <!-- 操作区域 -->
+        <div class="grid grid-cols-1 xl:grid-cols-4 gap-6">
+            <!-- 左侧：添加用户表单 -->
+            <div class="xl:col-span-1">
+                <div class="bg-white rounded-xl shadow-md p-6 sticky top-20">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                        <i class="fas fa-user-plus text-indigo-600 mr-2"></i>添加用户
+                    </h3>
+                    <form id="addUserForm" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">用户名 *</label>
+                            <input type="text" name="username" required
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                手机号 * <i class="fas fa-lock text-xs text-gray-400" title="此字段将被加密存储"></i>
+                            </label>
+                            <input type="tel" name="phone" required pattern="^1[3-9]\d{9}$"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                身份证号 <i class="fas fa-lock text-xs text-gray-400" title="此字段将被加密存储"></i>
+                            </label>
+                            <input type="text" name="idCard"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                邮箱 <i class="fas fa-lock text-xs text-gray-400" title="此字段将被加密存储"></i>
+                            </label>
+                            <input type="email" name="email"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                银行卡号 <i class="fas fa-lock text-xs text-gray-400" title="此字段将被加密存储"></i>
+                            </label>
+                            <input type="text" name="bankCard" pattern="\d{16,19}"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                家庭住址 <i class="fas fa-lock text-xs text-gray-400" title="此字段将被加密存储"></i>
+                            </label>
+                            <textarea name="address" rows="2"
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">年龄</label>
+                                <input type="number" name="age" min="1" max="120"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">性别</label>
+                                <select name="gender"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                    <option value="">请选择</option>
+                                    <option value="男">男</option>
+                                    <option value="女">女</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">职业</label>
+                            <input type="text" name="occupation"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">备注</label>
+                            <textarea name="remark" rows="2"
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                        </div>
+                        <button type="submit"
+                                class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition duration-200 flex items-center justify-center">
+                            <i class="fas fa-save mr-2"></i>添加用户
+                        </button>
+                    </form>
+                </div>
+
+                <!-- 批量添加示例数据 -->
+                <div class="bg-white rounded-xl shadow-md p-6 mt-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                        <i class="fas fa-users text-indigo-600 mr-2"></i>批量添加示例数据
+                    </h3>
+                    <button onclick="addSampleUsers()"
+                            class="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition duration-200 flex items-center justify-center">
+                        <i class="fas fa-database mr-2"></i>生成示例用户
+                    </button>
+                </div>
+            </div>
+
+            <!-- 右侧：用户列表 -->
+            <div class="xl:col-span-3">
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold text-gray-900">
+                            <i class="fas fa-list text-indigo-600 mr-2"></i>用户列表
+                        </h3>
+                        <div class="flex space-x-2">
+                            <input type="text" id="searchInput" placeholder="搜索用户名..."
+                                   class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <button onclick="loadUsers()"
+                                    class="bg-gray-100 text-gray-700 px-3 py-2 rounded-md hover:bg-gray-200 transition duration-200">
+                                <i class="fas fa-search"></i>
+                            </button>
+                            <button onclick="loadUsers()"
+                                    class="bg-indigo-100 text-indigo-700 px-3 py-2 rounded-md hover:bg-indigo-200 transition duration-200">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 用户表格 -->
+                    <div class="overflow-x-auto -mx-4 px-4">
+                        <table class="w-full divide-y divide-gray-200 border border-gray-200 rounded-lg overflow-hidden">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">用户</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">联系方式</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">个人信息</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">状态</th>
+                                    <th class="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-b border-gray-200">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="userTableBody" class="bg-white divide-y divide-gray-100">
+                                <!-- 用户数据将通过 JavaScript 动态生成 -->
+                            </tbody>
+                        </table>
+                        <div id="emptyState" class="text-center py-12 hidden">
+                            <i class="fas fa-users text-gray-300 text-5xl mb-4"></i>
+                            <p class="text-gray-500">暂无用户数据</p>
+                            <p class="text-gray-400 text-sm mt-2">添加用户开始体验字段级加密功能</p>
+                        </div>
+                    </div>
+
+                    <!-- 分页 -->
+                    <div id="pagination" class="flex justify-between items-center mt-6">
+                        <!-- 分页控件将通过 JavaScript 动态生成 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 加密演示区域 -->
+        <div class="bg-white rounded-xl shadow-md p-6 mt-8">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                <i class="fas fa-eye text-indigo-600 mr-2"></i>加密效果演示
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <h4 class="font-medium text-gray-700 mb-2">🔐 加密字段（存储在数据库中）</h4>
+                    <div id="encryptedData" class="bg-gray-50 p-4 rounded-lg font-mono text-sm text-gray-600 h-32 overflow-y-auto">
+                        <p class="text-gray-400">添加用户后，这里将显示实际的加密数据...</p>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="font-medium text-gray-700 mb-2">🔓 解密字段（应用中显示）</h4>
+                    <div id="decryptedData" class="bg-green-50 p-4 rounded-lg font-mono text-sm text-gray-600 h-32 overflow-y-auto">
+                        <p class="text-gray-400">应用层自动解密，业务代码无感知...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast 通知容器 -->
+    <div id="toastContainer" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
+
+    <!-- JavaScript -->
+    <script>
+        // 全局变量
+        const API_BASE = '/api/users';
+        let currentPage = 1;
+        let pageSize = 10;
+        let currentUsers = [];
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            checkConnection();
+            loadStats();
+            loadUsers();
+
+            // 绑定表单提交事件
+            document.getElementById('addUserForm').addEventListener('submit', handleAddUser);
+
+            // 绑定搜索框回车事件
+            document.getElementById('searchInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    loadUsers();
+                }
+            });
+        });
+
+        // 检查后端连接状态
+        async function checkConnection() {
+            try {
+                const response = await fetch(`${API_BASE}/info`);
+                if (response.ok) {
+                    updateConnectionStatus(true);
+                } else {
+                    updateConnectionStatus(false);
+                }
+            } catch (error) {
+                updateConnectionStatus(false);
+            }
+        }
+
+        // 更新连接状态显示
+        function updateConnectionStatus(connected) {
+            const statusDot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+
+            if (connected) {
+                statusDot.className = 'w-2 h-2 bg-green-500 rounded-full mr-2';
+                statusText.textContent = '已连接';
+            } else {
+                statusDot.className = 'w-2 h-2 bg-red-500 rounded-full mr-2';
+                statusText.textContent = '连接失败';
+            }
+        }
+
+        // 加载统计信息
+        async function loadStats() {
+            try {
+                const response = await fetch(`${API_BASE}/stats`);
+                const result = await response.json();
+
+                if (result.success) {
+                    const stats = result.data;
+                    const statsContainer = document.getElementById('statsContainer');
+                    statsContainer.innerHTML = `
+                        <div class="bg-white rounded-lg shadow p-6 slide-up">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 bg-indigo-100 rounded-lg p-3">
+                                    <i class="fas fa-users text-indigo-600 text-xl"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-gray-600">总用户数</p>
+                                    <p class="text-2xl font-semibold text-gray-900">${stats.totalCount}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg shadow p-6 slide-up" style="animation-delay: 0.1s">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 bg-green-100 rounded-lg p-3">
+                                    <i class="fas fa-user-check text-green-600 text-xl"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-gray-600">启用用户</p>
+                                    <p class="text-2xl font-semibold text-gray-900">${stats.enabledCount}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg shadow p-6 slide-up" style="animation-delay: 0.2s">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 bg-yellow-100 rounded-lg p-3">
+                                    <i class="fas fa-user-times text-yellow-600 text-xl"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-gray-600">禁用用户</p>
+                                    <p class="text-2xl font-semibold text-gray-900">${stats.disabledCount}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg shadow p-6 slide-up" style="animation-delay: 0.3s">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 bg-purple-100 rounded-lg p-3">
+                                    <i class="fas fa-percentage text-purple-600 text-xl"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-gray-600">启用率</p>
+                                    <p class="text-2xl font-semibold text-gray-900">${stats.enabledRate.toFixed(1)}%</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('加载统计信息失败:', error);
+            }
+        }
+
+        // 加载用户列表
+        async function loadUsers(page = 1) {
+            try {
+                const searchTerm = document.getElementById('searchInput').value;
+                let url;
+
+                if (searchTerm) {
+                    // 有搜索词时使用搜索接口
+                    url = `${API_BASE}/search?username=${searchTerm}&page=${page}&size=${pageSize}`;
+                } else {
+                    // 无搜索词时使用分页接口
+                    url = `${API_BASE}/page?page=${page}&size=${pageSize}`;
+                }
+
+                const response = await fetch(url);
+                const result = await response.json();
+
+                if (result.success) {
+                    currentUsers = result.data.content || result.data;
+                    renderUserTable(result.data);
+                    currentPage = page;
+                } else {
+                    showToast(result.message, 'error');
+                }
+            } catch (error) {
+                console.error('加载用户列表失败:', error);
+                showToast('加载用户列表失败', 'error');
+            }
+        }
+
+        // 渲染用户表格
+        function renderUserTable(data) {
+            const tbody = document.getElementById('userTableBody');
+            const emptyState = document.getElementById('emptyState');
+
+            if (data.content.length === 0) {
+                tbody.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            tbody.innerHTML = data.content.map(user => `
+                <tr class="hover:bg-gray-50 transition-colors border-b border-gray-50">
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 h-8 w-8">
+                                <div class="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center">
+                                    <span class="text-indigo-600 text-sm font-medium">${user.username.charAt(0).toUpperCase()}</span>
+                                </div>
+                            </div>
+                            <div class="ml-3">
+                                <div class="text-sm font-medium text-gray-900 truncate max-w-[120px]">${user.username}</div>
+                                <div class="text-xs text-gray-500">ID: ${user.id}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="text-xs text-gray-700 space-y-1">
+                            <div class="flex items-center">
+                                <i class="fas fa-phone text-indigo-500 mr-1.5 w-3"></i>
+                                <span class="truncate max-w-[140px]">${user.phone || '-'}</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-envelope text-indigo-500 mr-1.5 w-3"></i>
+                                <span class="truncate max-w-[140px]">${user.email || '-'}</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-id-card text-indigo-500 mr-1.5 w-3"></i>
+                                <span class="truncate max-w-[140px]">${user.idCard ? maskIdCard(user.idCard) : '-'}</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="text-xs text-gray-700 space-y-1">
+                            <div class="flex items-center">
+                                <i class="fas fa-credit-card text-green-500 mr-1.5 w-3"></i>
+                                <span class="truncate max-w-[120px]">${user.bankCard ? maskBankCard(user.bankCard) : '-'}</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-briefcase text-green-500 mr-1.5 w-3"></i>
+                                <span class="truncate max-w-[120px]">${user.occupation || '-'}</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-info-circle text-gray-400 mr-1.5 w-3"></i>
+                                <span>${user.age ? user.age + '岁' : '-'} ${user.gender ? '· ' + user.gender : ''}</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        ${user.enabled
+                            ? '<span class="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">✓ 启用</span>'
+                            : '<span class="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">✗ 禁用</span>'
+                        }
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-center">
+                        <div class="flex items-center justify-center space-x-2">
+                            <button onclick="viewUser(${user.id})"
+                                    class="text-indigo-600 hover:text-indigo-900 p-1 hover:bg-indigo-50 rounded transition-colors"
+                                    title="查看详情">
+                                <i class="fas fa-eye text-sm"></i>
+                            </button>
+                            <button onclick="toggleUserStatus(${user.id}, ${!user.enabled})"
+                                    class="text-yellow-600 hover:text-yellow-900 p-1 hover:bg-yellow-50 rounded transition-colors"
+                                    title="${user.enabled ? '禁用用户' : '启用用户'}">
+                                <i class="fas fa-${user.enabled ? 'ban' : 'check'} text-sm"></i>
+                            </button>
+                            <button onclick="deleteUser(${user.id})"
+                                    class="text-red-600 hover:text-red-900 p-1 hover:bg-red-50 rounded transition-colors"
+                                    title="删除用户">
+                                <i class="fas fa-trash text-sm"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+
+            // 渲染分页控件
+            renderPagination(data);
+
+            // 更新加密演示数据
+            updateEncryptionDemo(data.content);
+        }
+
+        // 渲染分页控件
+        function renderPagination(data) {
+            const pagination = document.getElementById('pagination');
+            const totalPages = data.totalPages;
+
+            if (totalPages <= 1) {
+                pagination.innerHTML = '';
+                return;
+            }
+
+            let paginationHtml = '<div class="flex flex-col sm:flex-row justify-between items-center gap-4">';
+            paginationHtml += `<div class="text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">显示 ${data.currentPage * data.pageSize - data.pageSize + 1} 到 ${Math.min(data.currentPage * data.pageSize, data.totalElements)} 条，共 ${data.totalElements} 条</div>`;
+            paginationHtml += '<div class="flex items-center space-x-1">';
+
+            // 上一页
+            if (data.currentPage > 1) {
+                paginationHtml += `<button onclick="loadUsers(${data.currentPage - 1})" class="px-3 py-1.5 bg-white border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-md transition-colors">« 上一页</button>`;
+            }
+
+            // 页码
+            const startPage = Math.max(1, data.currentPage - 2);
+            const endPage = Math.min(totalPages, data.currentPage + 2);
+
+            for (let i = startPage; i <= endPage; i++) {
+                if (i === data.currentPage) {
+                    paginationHtml += `<span class="px-3 py-1.5 bg-indigo-600 text-white text-sm font-medium rounded-md">${i}</span>`;
+                } else {
+                    paginationHtml += `<button onclick="loadUsers(${i})" class="px-3 py-1.5 bg-white border border-gray-300 text-sm font-medium text-gray-700 hover:bg-indigo-50 hover:border-indigo-300 rounded-md transition-colors">${i}</button>`;
+                }
+            }
+
+            // 下一页
+            if (data.currentPage < totalPages) {
+                paginationHtml += `<button onclick="loadUsers(${data.currentPage + 1})" class="px-3 py-1.5 bg-white border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-md transition-colors">下一页 »</button>`;
+            }
+
+            paginationHtml += '</div></div>';
+            pagination.innerHTML = paginationHtml;
+        }
+
+        // 处理添加用户
+        async function handleAddUser(event) {
+            event.preventDefault();
+
+            const formData = new FormData(event.target);
+            const userData = Object.fromEntries(formData);
+
+            // 处理空值 - 将空字符串转换为null或undefined，避免验证失败
+            Object.keys(userData).forEach(key => {
+                const value = userData[key];
+                if (value === '' || value === null || value === undefined) {
+                    // 对于非必需字段，设置为undefined或删除
+                    if (key !== 'username' && key !== 'phone') { // 用户名和手机号是必需的
+                        userData[key] = null;
+                    }
+                }
+            });
+
+            // 打印请求数据用于调试
+            console.log('发送的用户数据:', userData);
+
+            try {
+                const response = await fetch(API_BASE, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(userData)
+                });
+
+                const result = await response.json();
+
+                console.log('服务器响应:', result);
+                console.log('响应状态:', response.status);
+
+                if (result.success) {
+                    showToast('用户添加成功！', 'success');
+                    event.target.reset();
+                    loadUsers();
+                    loadStats();
+                } else {
+                    const errorMsg = result.message || '添加用户失败，未知错误';
+                    showToast(errorMsg, 'error');
+                    console.error('添加用户失败，响应:', result);
+
+                    // 如果是400错误，显示详细信息
+                    if (response.status === 400) {
+                        console.error('400错误详情 - 可能的字段验证失败');
+                        console.error('请求数据:', userData);
+                    }
+                }
+            } catch (error) {
+                console.error('添加用户失败:', error);
+                console.error('请求数据:', userData);
+                showToast('添加用户失败: ' + error.message, 'error');
+            }
+        }
+
+        // 批量添加示例用户
+        async function addSampleUsers() {
+            const sampleUsers = [
+                {
+                    username: '前端用户张三' + Date.now(),
+                    phone: '13811110001',
+                    idCard: '110101199001011111',
+                    email: 'frontend.zhangsan' + Date.now() + '@example.com',
+                    bankCard: '6222021234567890001',
+                    address: '北京市朝阳区建国路88号',
+                    age: 25,
+                    gender: '男',
+                    occupation: '前端开发工程师',
+                    remark: '前端生成的示例用户数据'
+                },
+                {
+                    username: '后端用户李四' + Date.now(),
+                    phone: '13811110002',
+                    idCard: '110101199002022222',
+                    email: 'backend.lisi' + Date.now() + '@example.com',
+                    bankCard: '6222021234567890002',
+                    address: '上海市浦东新区陆家嘴金融中心',
+                    age: 28,
+                    gender: '男',
+                    occupation: '后端开发工程师',
+                    remark: '前端生成的示例用户数据'
+                },
+                {
+                    username: '测试用户王五' + Date.now(),
+                    phone: '13811110003',
+                    idCard: '110101199003033333',
+                    email: 'test.wangwu' + Date.now() + '@example.com',
+                    bankCard: '6222021234567890003',
+                    address: '广州市天河区珠江新城',
+                    age: 26,
+                    gender: '女',
+                    occupation: '测试工程师',
+                    remark: '前端生成的示例用户数据'
+                }
+            ];
+
+            try {
+                const response = await fetch(`${API_BASE}/batch`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(sampleUsers)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    const count = result.count || result.data?.length || 0;
+                    showToast(`成功添加 ${count} 个示例用户！`, 'success');
+                    loadUsers();
+                    loadStats();
+                } else {
+                    const errorMsg = result.message || '批量添加用户失败，未知错误';
+                    showToast(errorMsg, 'error');
+                    console.error('批量添加用户失败，响应:', result);
+                }
+            } catch (error) {
+                console.error('批量添加用户失败:', error);
+                showToast('批量添加用户失败', 'error');
+            }
+        }
+
+        // 查看用户详情
+        async function viewUser(userId) {
+            try {
+                const response = await fetch(`${API_BASE}/${userId}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    const user = result.data;
+                    const details = `
+                        <div class="p-4">
+                            <h4 class="font-semibold text-lg mb-3">用户详情</h4>
+                            <div class="grid grid-cols-2 gap-4 text-sm">
+                                <div><strong>ID:</strong> ${user.id}</div>
+                                <div><strong>用户名:</strong> ${user.username}</div>
+                                <div><strong>手机号:</strong> ${user.phone}</div>
+                                <div><strong>邮箱:</strong> ${user.email}</div>
+                                <div><strong>身份证:</strong> ${user.idCard}</div>
+                                <div><strong>银行卡:</strong> ${user.bankCard}</div>
+                                <div><strong>地址:</strong> ${user.address}</div>
+                                <div><strong>年龄:</strong> ${user.age}</div>
+                                <div><strong>性别:</strong> ${user.gender}</div>
+                                <div><strong>职业:</strong> ${user.occupation}</div>
+                                <div><strong>状态:</strong> ${user.enabled ? '启用' : '禁用'}</div>
+                                <div><strong>创建时间:</strong> ${user.createTime}</div>
+                            </div>
+                        </div>
+                    `;
+                    showToast(details, 'info', 10000);
+                } else {
+                    showToast(result.message, 'error');
+                }
+            } catch (error) {
+                console.error('查看用户详情失败:', error);
+                showToast('查看用户详情失败', 'error');
+            }
+        }
+
+        // 切换用户状态
+        async function toggleUserStatus(userId, enabled) {
+            try {
+                const response = await fetch(`${API_BASE}/${userId}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ enabled })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showToast(`用户已${enabled ? '启用' : '禁用'}`, 'success');
+                    loadUsers();
+                    loadStats();
+                } else {
+                    showToast(result.message, 'error');
+                }
+            } catch (error) {
+                console.error('切换用户状态失败:', error);
+                showToast('切换用户状态失败', 'error');
+            }
+        }
+
+        // 删除用户
+        async function deleteUser(userId) {
+            if (!confirm('确定要删除这个用户吗？')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/${userId}`, {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showToast('用户删除成功', 'success');
+                    loadUsers();
+                    loadStats();
+                } else {
+                    showToast(result.message, 'error');
+                }
+            } catch (error) {
+                console.error('删除用户失败:', error);
+                showToast('删除用户失败', 'error');
+            }
+        }
+
+        // 更新加密演示数据
+        function updateEncryptionDemo(users) {
+            const encryptedDiv = document.getElementById('encryptedData');
+            const decryptedDiv = document.getElementById('decryptedData');
+
+            if (users.length > 0) {
+                const user = users[0];
+
+                // 这里演示加密字段的概念（实际数据已自动解密）
+                encryptedDiv.innerHTML = `
+                    <div class="space-y-2">
+                        <div><strong>手机号:</strong> ${generateMockEncryptedString(user.phone)}</div>
+                        <div><strong>邮箱:</strong> ${generateMockEncryptedString(user.email)}</div>
+                        <div><strong>身份证:</strong> ${generateMockEncryptedString(user.idCard)}</div>
+                        <div><strong>银行卡:</strong> ${generateMockEncryptedString(user.bankCard)}</div>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-2">* 这里显示的是模拟的加密数据格式，实际数据库中存储的是真正的加密密文</p>
+                `;
+
+                decryptedDiv.innerHTML = `
+                    <div class="space-y-2">
+                        <div><strong>手机号:</strong> ${user.phone || '-'}</div>
+                        <div><strong>邮箱:</strong> ${user.email || '-'}</div>
+                        <div><strong>身份证:</strong> ${user.idCard || '-'}</div>
+                        <div><strong>银行卡:</strong> ${user.bankCard || '-'}</div>
+                    </div>
+                    <p class="text-xs text-green-600 mt-2">* 业务层自动解密，代码无需手动处理</p>
+                `;
+            }
+        }
+
+        // 生成模拟的加密字符串（用于演示）
+        function generateMockEncryptedString(text) {
+            if (!text) return '-';
+            // 模拟 Base64 编码格式：iv:encrypted_data
+            return `${btoa(Math.random().toString(36).substring(2, 8))}:${btoa(text).substring(0, 20)}...`;
+        }
+
+        // 身份证号脱敏
+        function maskIdCard(idCard) {
+            if (!idCard || idCard.length < 18) return idCard;
+            return idCard.substring(0, 6) + '********' + idCard.substring(14);
+        }
+
+        // 银行卡号脱敏
+        function maskBankCard(bankCard) {
+            if (!bankCard || bankCard.length < 8) return bankCard;
+            return bankCard.substring(0, 4) + ' **** **** ' + bankCard.substring(bankCard.length - 4);
+        }
+
+        // 显示 Toast 通知
+        function showToast(message, type = 'info', duration = 3000) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+
+            const bgColors = {
+                success: 'bg-green-500',
+                error: 'bg-red-500',
+                info: 'bg-blue-500',
+                warning: 'bg-yellow-500'
+            };
+
+            const icons = {
+                success: 'fa-check-circle',
+                error: 'fa-exclamation-circle',
+                info: 'fa-info-circle',
+                warning: 'fa-exclamation-triangle'
+            };
+
+            toast.className = `${bgColors[type]} text-white px-6 py-4 rounded-lg shadow-lg flex items-center space-x-3 slide-up`;
+            toast.innerHTML = `
+                <i class="fas ${icons[type]}"></i>
+                <div>${message}</div>
+            `;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100%)';
+                toast.style.transition = 'all 0.3s ease-out';
+                setTimeout(() => {
+                    container.removeChild(toast);
+                }, 300);
+            }, duration);
+        }
+    </script>
+</body>
+</html>
