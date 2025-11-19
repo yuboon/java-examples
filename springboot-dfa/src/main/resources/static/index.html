@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DFA 敏感词过滤系统</title>
+    <!-- 国内 CDN - TailwindCSS -->
+    <script src="https://npm.elemecdn.com/tailwindcss@3.3.0/lib/index.min.js"></script>
+    <script>
+        // TailwindCSS 配置
+        tailwind.config = {
+            theme: {
+                extend: {}
+            }
+        }
+    </script>
+
+    <!-- 国内 CDN - Font Awesome -->
+    <link rel="stylesheet" href="https://npm.elemecdn.com/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+    <style>
+        .highlight {
+            background-color: #fef2f2;
+            padding: 2px 4px;
+            border-radius: 3px;
+            border: 1px solid #fecaca;
+        }
+        .loading {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- 头部导航 -->
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <i class="fas fa-shield-alt text-blue-600 text-2xl mr-3"></i>
+                    <h1 class="text-xl font-bold text-gray-900">DFA 敏感词过滤系统</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button onclick="checkSystemStatus()" class="text-gray-600 hover:text-blue-600 transition-colors">
+                        <i class="fas fa-heartbeat"></i> 系统状态
+                    </button>
+                    <a href="#about" class="text-gray-600 hover:text-blue-600 transition-colors">
+                        <i class="fas fa-info-circle"></i> 关于
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要内容 -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- 算法简介 -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <div class="flex items-center mb-4">
+                <i class="fas fa-microchip text-blue-600 text-2xl mr-3"></i>
+                <h2 class="text-2xl font-bold text-gray-900">DFA 算法简介</h2>
+            </div>
+            <div class="grid md:grid-cols-2 gap-6">
+                <div>
+                    <h3 class="text-lg font-semibold mb-2 text-gray-800">什么是 DFA 算法？</h3>
+                    <p class="text-gray-600 leading-relaxed">
+                        DFA (Deterministic Finite Automaton) 是一种有限状态自动机，通过构建 Trie 树数据结构实现高效的多模式字符串匹配。
+                        时间复杂度从传统的 O(n×m) 优化到 O(n)，其中 n 是文本长度，m 是敏感词数量。
+                    </p>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold mb-2 text-gray-800">核心优势</h3>
+                    <ul class="space-y-2 text-gray-600">
+                        <li class="flex items-start">
+                            <i class="fas fa-check-circle text-green-500 mt-1 mr-2"></i>
+                            <span><strong>线性时间复杂度</strong> - 只需遍历文本一次</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check-circle text-green-500 mt-1 mr-2"></i>
+                            <span><strong>前缀共享优化</strong> - 减少重复存储</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check-circle text-green-500 mt-1 mr-2"></i>
+                            <span><strong>确定性匹配</strong> - 无需回溯</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- 测试区域 -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <div class="flex items-center mb-6">
+                <i class="fas fa-flask text-blue-600 text-2xl mr-3"></i>
+                <h2 class="text-2xl font-bold text-gray-900">敏感词过滤测试</h2>
+            </div>
+
+            <!-- 输入区域 -->
+            <div class="mb-6">
+                <label for="textInput" class="block text-sm font-medium text-gray-700 mb-2">
+                    请输入要检测的文本：
+                </label>
+                <textarea
+                    id="textInput"
+                    rows="4"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    placeholder="输入一些文本，包含可能的敏感词进行测试...&#10;例如：这是一个包含apple内容的测试文本"
+                ></textarea>
+            </div>
+
+            <!-- 替换字符设置 -->
+            <div class="mb-6">
+                <label for="replacement" class="block text-sm font-medium text-gray-700 mb-2">
+                    替换字符：
+                </label>
+                <div class="flex space-x-4">
+                    <input
+                        type="text"
+                        id="replacement"
+                        value="*"
+                        class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent w-20"
+                        placeholder="替换字符"
+                    >
+                    <div class="flex space-x-2">
+                        <button onclick="setReplacement('*')" class="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-sm transition-colors">默认 *</button>
+                        <button onclick="setReplacement('[屏蔽]')" class="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-sm transition-colors">[屏蔽]</button>
+                        <button onclick="setReplacement('XXX')" class="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-sm transition-colors">XXX</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 操作按钮 -->
+            <div class="flex flex-wrap gap-3 mb-6">
+                <button
+                    onclick="checkSensitiveWord()"
+                    class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center"
+                >
+                    <i class="fas fa-search mr-2"></i>
+                    检查敏感词
+                </button>
+                <button
+                    onclick="filterText()"
+                    class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors flex items-center"
+                >
+                    <i class="fas fa-filter mr-2"></i>
+                    过滤文本
+                </button>
+                <button
+                    onclick="findAllSensitiveWords()"
+                    class="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center"
+                >
+                    <i class="fas fa-list mr-2"></i>
+                    查找所有敏感词
+                </button>
+                <button
+                    onclick="clearResults()"
+                    class="px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors flex items-center"
+                >
+                    <i class="fas fa-eraser mr-2"></i>
+                    清空结果
+                </button>
+            </div>
+
+            <!-- 结果显示区域 -->
+            <div id="resultArea" class="hidden">
+                <div class="border-t pt-6">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-800">检测结果</h3>
+
+                    <!-- 结果统计 -->
+                    <div id="resultStats" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        <!-- 动态填充 -->
+                    </div>
+
+                    <!-- 原始文本和过滤后文本对比 -->
+                    <div id="textComparison" class="grid md:grid-cols-2 gap-6 mb-6">
+                        <!-- 动态填充 -->
+                    </div>
+
+                    <!-- 敏感词列表 -->
+                    <div id="sensitiveWordsList" class="hidden">
+                        <h4 class="text-md font-semibold mb-3 text-gray-800">发现敏感词：</h4>
+                        <div id="sensitiveWordsContainer" class="bg-red-50 border border-red-200 rounded-lg p-4">
+                            <!-- 动态填充 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 敏感词管理 -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <div class="flex items-center mb-6">
+                <i class="fas fa-cog text-blue-600 text-2xl mr-3"></i>
+                <h2 class="text-2xl font-bold text-gray-900">敏感词管理</h2>
+            </div>
+
+            <!-- 添加单个敏感词 -->
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    添加敏感词：
+                </label>
+                <div class="flex space-x-3">
+                    <input
+                        type="text"
+                        id="newSensitiveWord"
+                        class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="输入新的敏感词"
+                    >
+                    <button
+                        onclick="addSensitiveWord()"
+                        class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                    >
+                        <i class="fas fa-plus mr-2"></i>
+                        添加
+                    </button>
+                </div>
+            </div>
+
+            <!-- 批量添加敏感词 -->
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    批量添加敏感词（每行一个）：
+                </label>
+                <textarea
+                    id="batchSensitiveWords"
+                    rows="4"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none mb-3"
+                    placeholder=""
+                ></textarea>
+                <button
+                    onclick="addBatchSensitiveWords()"
+                    class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                >
+                    <i class="fas fa-upload mr-2"></i>
+                    批量添加
+                </button>
+            </div>
+        </div>
+
+        <!-- 系统状态 -->
+        <div id="systemStatus" class="bg-white rounded-lg shadow-md p-6 mb-8 hidden">
+            <div class="flex items-center mb-6">
+                <i class="fas fa-chart-line text-blue-600 text-2xl mr-3"></i>
+                <h2 class="text-2xl font-bold text-gray-900">系统状态</h2>
+            </div>
+            <div id="systemStatusContent">
+                <!-- 动态填充 -->
+            </div>
+        </div>
+
+        <!-- 关于区域 -->
+        <div id="about" class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex items-center mb-6">
+                <i class="fas fa-info-circle text-blue-600 text-2xl mr-3"></i>
+                <h2 class="text-2xl font-bold text-gray-900">关于本项目</h2>
+            </div>
+
+            <div class="prose max-w-none text-gray-600">
+                <p class="mb-4">
+                    本项目基于 DFA (Deterministic Finite Automaton) 算法实现高效敏感词过滤系统，
+                    通过 Trie 树数据结构优化存储和查找效率。
+                </p>
+
+                <div class="grid md:grid-cols-2 gap-6 mt-6">
+                    <div>
+                        <h3 class="text-lg font-semibold mb-3 text-gray-800">技术特点</h3>
+                        <ul class="space-y-2">
+                            <li class="flex items-start">
+                                <i class="fas fa-code text-blue-500 mt-1 mr-2"></i>
+                                <span>基于 Spring Boot + Java 17</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-code text-blue-500 mt-1 mr-2"></i>
+                                <span>DFA 算法 + Trie 树数据结构</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-code text-blue-500 mt-1 mr-2"></i>
+                                <span>前后端分离架构</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-code text-blue-500 mt-1 mr-2"></i>
+                                <span>RESTful API 接口设计</span>
+                            </li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold mb-3 text-gray-800">性能指标</h3>
+                        <ul class="space-y-2">
+                            <li class="flex items-start">
+                                <i class="fas fa-tachometer-alt text-green-500 mt-1 mr-2"></i>
+                                <span>时间复杂度：O(n)</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-tachometer-alt text-green-500 mt-1 mr-2"></i>
+                                <span>空间效率：前缀共享优化</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-tachometer-alt text-green-500 mt-1 mr-2"></i>
+                                <span>支持大规模敏感词库</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-tachometer-alt text-green-500 mt-1 mr-2"></i>
+                                <span>毫秒级响应时间</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 底部 -->
+    <footer class="bg-gray-800 text-white py-8 mt-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <p class="text-gray-400">
+                DFA 敏感词过滤系统 - 基于 Trie 树的高效多模式匹配算法
+            </p>
+        </div>
+    </footer>
+
+    <!-- 加载提示 -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-lg p-6 flex flex-col items-center">
+            <i class="fas fa-spinner loading text-4xl text-blue-600 mb-4"></i>
+            <p class="text-gray-700">处理中...</p>
+        </div>
+    </div>
+
+    <!-- 提示消息 -->
+    <div id="toast" class="fixed top-4 right-4 z-50 hidden">
+        <div class="bg-white rounded-lg shadow-lg p-4 flex items-center space-x-3 min-w-[300px]">
+            <i id="toastIcon" class="fas fa-check-circle text-2xl"></i>
+            <div>
+                <p id="toastTitle" class="font-semibold text-gray-900"></p>
+                <p id="toastMessage" class="text-sm text-gray-600"></p>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
