@@ -1,0 +1,27 @@
+server:
+  port: 8443
+  ssl:
+    enabled: true
+    key-store: classpath:server.jks
+    key-store-password: changeit
+    key-store-type: JKS
+    key-alias: server
+    trust-store: classpath:truststore.jks
+    trust-store-password: changeit
+    trust-store-type: JKS
+    client-auth: need  # 需要客户端证书
+
+spring:
+  application:
+    name: springboot-mutual-cert
+  output:
+    ansi:
+      enabled: always
+  banner:
+    location: classpath:banner.txt
+
+logging:
+  level:
+    org.springframework.security: DEBUG
+    com.example.mutualcert: DEBUG
+    org.apache.catalina: DEBUG
