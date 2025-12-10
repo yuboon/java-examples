@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理页面 - 登录系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module" src="/js/api.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- 导航栏 -->
+    <nav class="bg-white shadow">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="/index.html" class="text-xl font-semibold text-gray-900 hover:text-indigo-600">单点登录系统</a>
+                    <span class="ml-4 text-sm text-gray-500">管理页面</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span class="text-gray-700">管理员，<span id="username">admin</span></span>
+                    <a href="/index.html" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+                        返回主页
+                    </a>
+                    <button onclick="logout()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+                        退出登录
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要内容 -->
+    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div class="px-4 py-6 sm:px-0">
+            <!-- 页面标题 -->
+            <div class="mb-6">
+                <h1 class="text-2xl font-semibold text-gray-900">系统管理</h1>
+                <p class="mt-1 text-sm text-gray-600">管理在线用户和系统配置</p>
+            </div>
+
+            <!-- 统计信息 -->
+            <div class="grid grid-cols-1 gap-5 sm:grid-cols-3">
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <dt class="text-sm font-medium text-gray-500 truncate">
+                            当前在线用户数
+                        </dt>
+                        <dd class="mt-1 text-3xl font-semibold text-gray-900" id="totalOnlineUsers">0</dd>
+                    </div>
+                </div>
+
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <dt class="text-sm font-medium text-gray-500 truncate">
+                            总登录会话数
+                        </dt>
+                        <dd class="mt-1 text-3xl font-semibold text-gray-900" id="totalSessions">0</dd>
+                    </div>
+                </div>
+
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <dt class="text-sm font-medium text-gray-500 truncate">
+                            系统运行时间
+                        </dt>
+                        <dd class="mt-1 text-3xl font-semibold text-gray-900" id="uptime">0</dd>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 在线用户列表 -->
+            <div class="mt-6 bg-white shadow rounded-lg">
+                <div class="px-4 py-5 sm:px-6">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">在线用户列表</h3>
+                        <button onclick="refreshUserList()" class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full text-indigo-600 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                            </svg>
+                            刷新
+                        </button>
+                    </div>
+                    <div class="mt-4">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            用户名
+                                        </th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            登录会话数
+                                        </th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            最后活动时间
+                                        </th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            操作
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200" id="userTableBody">
+                                    <tr>
+                                        <td colspan="4" class="px-6 py-4 text-center text-gray-500">
+                                            正在加载...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 系统配置 -->
+            <div class="mt-6 bg-white shadow rounded-lg">
+                <div class="px-4 py-5 sm:p-6">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">系统配置</h3>
+                    <dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">登录模式</dt>
+                            <dd class="mt-1 text-sm text-gray-900">
+                                <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                    单用户多登录
+                                </span>
+                            </dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">Token有效期</dt>
+                            <dd class="mt-1 text-sm text-gray-900">30分钟</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">自动清理</dt>
+                            <dd class="mt-1 text-sm text-gray-900">已启用（每5分钟）</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">存储方式</dt>
+                            <dd class="mt-1 text-sm text-gray-900">内存存储（Map）</dd>
+                        </div>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 提示信息 -->
+    <div id="alert" class="hidden fixed bottom-4 right-4 max-w-sm w-full bg-white rounded-lg shadow-lg p-4">
+        <div class="flex items-start">
+            <div class="flex-shrink-0">
+                <svg id="alert-icon" class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+            <div class="ml-3 w-0 flex-1">
+                <p id="alert-message" class="text-sm font-medium text-gray-900"></p>
+            </div>
+            <div class="ml-4 flex-shrink-0 flex">
+                <button onclick="hideAlert()" class="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    <span class="sr-only">关闭</span>
+                    <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import {
+            getOnlineUsersApi,
+            getUserTokensApi,
+            kickoutUserApi,
+            logoutApi,
+            checkLoginStatus,
+            getCurrentUserApi
+        } from '/js/api.js';
+
+        // 页面加载时初始化
+        window.addEventListener('DOMContentLoaded', async () => {
+            // 检查是否已登录
+            const isLoggedIn = await checkLoginStatus();
+            if (!isLoggedIn) {
+                window.location.href = '/login.html';
+                return;
+            }
+
+            // 检查是否是管理员
+            try {
+                const userResult = await getCurrentUserApi();
+                if (userResult && userResult.data && userResult.data.username !== 'admin') {
+                    showAlert('您没有权限访问管理页面', 'error');
+                    setTimeout(() => {
+                        window.location.href = '/index.html';
+                    }, 2000);
+                    return;
+                }
+                document.getElementById('username').textContent = userResult.data.username;
+            } catch (error) {
+                window.location.href = '/login.html';
+                return;
+            }
+
+            refreshUserList();
+            updateSystemStats();
+            // 定期刷新数据
+            setInterval(updateSystemStats, 30000); // 每30秒更新一次
+        });
+
+        // 刷新用户列表
+        async function refreshUserList() {
+            try {
+                const result = await getOnlineUsersApi();
+                if (result && result.data) {
+                    const users = result.data;
+                    const tbody = document.getElementById('userTableBody');
+                    tbody.innerHTML = '';
+
+                    let totalSessions = 0;
+
+                    for (const username of users) {
+                        const tokenResult = await getUserTokensApi(username);
+                        const sessionCount = tokenResult && tokenResult.data ? tokenResult.data.length : 0;
+                        totalSessions += sessionCount;
+
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0 h-10 w-10">
+                                        <div class="h-10 w-10 rounded-full bg-indigo-500 flex items-center justify-center">
+                                            <span class="text-white font-medium">${username.charAt(0).toUpperCase()}</span>
+                                        </div>
+                                    </div>
+                                    <div class="ml-4">
+                                        <div class="text-sm font-medium text-gray-900">${username}</div>
+                                        <div class="text-sm text-gray-500">${username === 'admin' ? '管理员' : '普通用户'}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                    ${sessionCount} 个会话
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                刚刚
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                ${username !== 'admin' ? `
+                                    <button onclick="kickoutUser('${username}')" class="text-red-600 hover:text-red-900">踢出</button>
+                                ` : '-'}
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    }
+
+                    // 更新统计信息
+                    document.getElementById('totalOnlineUsers').textContent = users.length;
+                    document.getElementById('totalSessions').textContent = totalSessions;
+                }
+            } catch (error) {
+                console.error('刷新用户列表失败:', error);
+                const tbody = document.getElementById('userTableBody');
+                tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-4 text-center text-gray-500">加载失败</td></tr>';
+            }
+        }
+
+        // 更新系统统计
+        async function updateSystemStats() {
+            // 更新运行时间（这里应该是从服务器获取）
+            const startTime = Date.now() - 3600000; // 假设运行了1小时
+            const uptime = Math.floor((Date.now() - startTime) / 1000 / 60); // 分钟
+            document.getElementById('uptime').textContent = uptime + ' 分钟';
+        }
+
+        // 踢出用户
+        async function kickoutUser(username) {
+            if (!confirm(`确定要踢出用户 ${username} 吗？\n踢出后该用户的所有登录会话将失效。`)) {
+                return;
+            }
+
+            try {
+                const result = await kickoutUserApi(username);
+
+                if (result && result.code === 200) {
+                    showAlert(`成功踢出用户 ${username}`, 'success');
+                    await refreshUserList();
+                } else {
+                    showAlert(result.message || '踢出用户失败', 'error');
+                }
+            } catch (error) {
+                console.error('踢出用户失败:', error);
+                showAlert('踢出用户失败', 'error');
+            }
+        }
+
+        // 退出登录
+        async function logout() {
+            if (confirm('确定要退出登录吗？')) {
+                try {
+                    await logoutApi();
+                } catch (error) {
+                    console.error('退出登录失败:', error);
+                } finally {
+                    window.location.href = '/login.html';
+                }
+            }
+        }
+
+        // 显示提示信息
+        function showAlert(message, type = 'success') {
+            const alert = document.getElementById('alert');
+            const alertIcon = document.getElementById('alert-icon');
+            const alertMessage = document.getElementById('alert-message');
+
+            alertMessage.textContent = message;
+
+            // 清除所有样式类
+            alertIcon.classList.remove('text-green-400', 'text-red-400', 'text-blue-400');
+            alert.classList.remove('bg-green-50', 'bg-red-50', 'bg-blue-50');
+            alertIcon.parentElement.classList.remove('bg-green-50', 'bg-red-50', 'bg-blue-50');
+
+            if (type === 'success') {
+                alertIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />';
+                alertIcon.classList.add('text-green-400');
+                alert.classList.add('bg-green-50');
+                alertIcon.parentElement.classList.add('bg-green-50');
+            } else if (type === 'error') {
+                alertIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />';
+                alertIcon.classList.add('text-red-400');
+                alert.classList.add('bg-red-50');
+                alertIcon.parentElement.classList.add('bg-red-50');
+            } else {
+                alertIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />';
+                alertIcon.classList.add('text-blue-400');
+                alert.classList.add('bg-blue-50');
+                alertIcon.parentElement.classList.add('bg-blue-50');
+            }
+
+            alert.classList.remove('hidden');
+
+            // 3秒后自动隐藏
+            setTimeout(() => {
+                alert.classList.add('hidden');
+            }, 3000);
+        }
+
+        // 隐藏提示信息
+        function hideAlert() {
+            document.getElementById('alert').classList.add('hidden');
+        }
+
+        // 定期检查登录状态
+        setInterval(async () => {
+            const isLoggedIn = await checkLoginStatus();
+            if (!isLoggedIn) {
+                window.location.href = '/login.html';
+            }
+        }, 30000); // 每30秒检查一次
+    </script>
+</body>
+</html>

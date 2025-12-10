@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module" src="/js/api.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center">
+    <div class="max-w-md w-full space-y-8">
+        <div>
+            <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
+                登录您的账户
+            </h2>
+            <p class="mt-2 text-center text-sm text-gray-600">
+                <span id="loginMode" class="font-medium text-indigo-600">单用户多登录模式</span>
+            </p>
+        </div>
+        <div class="mt-8 space-y-6">
+            <div class="rounded-md shadow-sm -space-y-px">
+                <div>
+                    <label for="username" class="sr-only">用户名</label>
+                    <input id="username" type="text"
+                           class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                           placeholder="用户名">
+                </div>
+                <div>
+                    <label for="password" class="sr-only">密码</label>
+                    <input id="password" type="password"
+                           class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                           placeholder="密码">
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <input id="remember-me" type="checkbox"
+                           class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                    <label for="remember-me" class="ml-2 block text-sm text-gray-900">
+                        记住我
+                    </label>
+                </div>
+            </div>
+
+            <div>
+                <button id="loginBtn"
+                        class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    <span class="absolute left-0 inset-y-0 flex items-center pl-3">
+                        <svg class="h-5 w-5 text-indigo-500 group-hover:text-indigo-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" />
+                        </svg>
+                    </span>
+                    <span id="loginBtnText">登录</span>
+                    <svg id="loginSpinner" class="hidden animate-spin h-5 w-5 text-white ml-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- 提示信息 -->
+        <div id="alert" class="hidden rounded-md bg-red-50 p-4">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-red-800" id="alert-title">错误</h3>
+                    <div class="mt-2 text-sm text-red-700" id="alert-message">
+                        错误信息
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 测试账号提示 -->
+        <div class="mt-6 border-t pt-6">
+            <p class="text-sm text-gray-600">
+                <strong>测试账号：</strong><br>
+                admin / admin123 (管理员)<br>
+                user1 / user123<br>
+                user2 / user123
+            </p>
+        </div>
+    </div>
+
+    <script type="module">
+        import { checkLoginStatus, loginApi, setToken } from '/js/api.js';
+
+        // 页面加载时检查是否已登录
+        window.addEventListener('DOMContentLoaded', async () => {
+            // 这里可以通过API获取配置，暂时写死
+            document.getElementById('loginMode').textContent = '单用户多登录模式';
+
+            // 检查是否已登录
+            const isLoggedIn = await checkLoginStatus();
+            if (isLoggedIn) {
+                window.location.href = '/index.html';
+            }
+        });
+
+        // 登录按钮点击事件
+        let isLoggingIn = false;
+        document.getElementById('loginBtn').addEventListener('click', async () => {
+            if (isLoggingIn) return; // 防止重复提交
+
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const rememberMe = document.getElementById('remember-me').checked;
+
+            // 表单验证
+            if (!username) {
+                showAlert('请输入用户名', 'error');
+                return;
+            }
+            if (!password) {
+                showAlert('请输入密码', 'error');
+                return;
+            }
+
+            // 设置登录状态
+            isLoggingIn = true;
+            document.getElementById('loginBtn').disabled = true;
+            document.getElementById('loginBtnText').textContent = '登录中...';
+            document.getElementById('loginSpinner').classList.remove('hidden');
+
+            try {
+                const result = await loginApi(username, password);
+
+                if (result && result.code === 200) {
+                    // 登录成功
+                    setToken(result.data.token, rememberMe);
+
+                    // 显示成功信息
+                    showAlert('登录成功！正在跳转...', 'success');
+
+                    // 延迟跳转
+                    setTimeout(() => {
+                        window.location.href = '/index.html';
+                    }, 1000);
+
+                } else {
+                    // 登录失败
+                    showAlert(result?.message || '登录失败', 'error');
+                }
+            } catch (error) {
+                showAlert('网络错误，请稍后重试', 'error');
+                console.error('Login error:', error);
+            } finally {
+                // 恢复登录状态
+                isLoggingIn = false;
+                document.getElementById('loginBtn').disabled = false;
+                document.getElementById('loginBtnText').textContent = '登录';
+                document.getElementById('loginSpinner').classList.add('hidden');
+            }
+        });
+
+        // 支持回车键登录
+        document.addEventListener('keypress', async (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('loginBtn').click();
+            }
+        });
+
+        function showAlert(message, type) {
+            const alert = document.getElementById('alert');
+            const alertTitle = document.getElementById('alert-title');
+            const alertMessage = document.getElementById('alert-message');
+
+            // 清除所有样式类
+            alert.classList.remove('bg-green-50', 'bg-red-50', 'bg-blue-50');
+            alertTitle.classList.remove('text-green-800', 'text-red-800', 'text-blue-800');
+            alertMessage.classList.remove('text-green-700', 'text-red-700', 'text-blue-700');
+            alertMessage.classList.remove('mt-2');
+
+            if (type === 'success') {
+                alert.classList.add('rounded-md', 'bg-green-50', 'p-4');
+                alertTitle.classList.add('text-sm', 'font-medium', 'text-green-800');
+                alertMessage.classList.add('mt-2', 'text-sm', 'text-green-700');
+            } else {
+                alert.classList.add('rounded-md', 'bg-red-50', 'p-4');
+                alertTitle.classList.add('text-sm', 'font-medium', 'text-red-800');
+                alertMessage.classList.add('mt-2', 'text-sm', 'text-red-700');
+            }
+
+            alertTitle.textContent = type === 'success' ? '成功' : '错误';
+            alertMessage.textContent = message;
+            alert.classList.remove('hidden');
+
+            // 3秒后自动隐藏
+            setTimeout(() => {
+                alert.classList.add('hidden');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

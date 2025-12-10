@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>主页 - 登录系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module" src="/js/api.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- 导航栏 -->
+    <nav class="bg-white shadow">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <h1 class="text-xl font-semibold text-gray-900">单点登录系统</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span class="text-gray-700">欢迎，<span id="username">用户</span></span>
+                    <button onclick="logout()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+                        退出登录
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要内容 -->
+    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div class="px-4 py-6 sm:px-0">
+            <!-- 欢迎信息 -->
+            <div class="bg-white overflow-hidden shadow rounded-lg">
+                <div class="px-4 py-5 sm:p-6">
+                    <h2 class="text-lg font-medium text-gray-900 mb-4">欢迎回来！</h2>
+                    <p class="text-gray-600">您已成功登录系统。当前登录模式为单用户多登录模式。</p>
+                    <p class="text-gray-600 mt-2">允许同一账号在多个设备上同时登录。</p>
+                </div>
+            </div>
+
+            <!-- 功能区域 -->
+            <div class="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                <!-- 在线用户 -->
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <dt class="text-sm font-medium text-gray-500 truncate">
+                            在线用户
+                        </dt>
+                        <dd class="mt-1 text-3xl font-semibold text-gray-900" id="onlineCount">-</dd>
+                    </div>
+                    <div class="bg-gray-50 px-4 py-4 sm:px-6">
+                        <div class="text-sm">
+                            <button onclick="showOnlineUsers()" class="font-medium text-indigo-600 hover:text-indigo-500">
+                                查看详情 →
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 当前登录设备 -->
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <dt class="text-sm font-medium text-gray-500 truncate">
+                            当前登录设备
+                        </dt>
+                        <dd class="mt-1 text-3xl font-semibold text-gray-900" id="deviceCount">1</dd>
+                    </div>
+                    <div class="bg-gray-50 px-4 py-4 sm:px-6">
+                        <div class="text-sm">
+                            <button onclick="showMyTokens()" class="font-medium text-indigo-600 hover:text-indigo-500">
+                                查看详情 →
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 登录时间 -->
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <dt class="text-sm font-medium text-gray-500 truncate">
+                            登录时间
+                        </dt>
+                        <dd class="mt-1 text-3xl font-semibold text-gray-900" id="loginTime">-</dd>
+                    </div>
+                    <div class="bg-gray-50 px-4 py-4 sm:px-6">
+                        <div class="text-sm">
+                            <a href="javascript:void(0)" onclick="refreshPage()" class="font-medium text-indigo-600 hover:text-indigo-500">
+                                刷新页面
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 用户信息 -->
+            <div class="mt-6 bg-white overflow-hidden shadow rounded-lg">
+                <div class="px-4 py-5 sm:p-6">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">用户信息</h3>
+                    <dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">用户名</dt>
+                            <dd class="mt-1 text-sm text-gray-900" id="userInfo-username">-</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">登录IP</dt>
+                            <dd class="mt-1 text-sm text-gray-900" id="userInfo-ip">-</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">设备类型</dt>
+                            <dd class="mt-1 text-sm text-gray-900" id="userInfo-device">-</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">Token过期时间</dt>
+                            <dd class="mt-1 text-sm text-gray-900" id="userInfo-expire">-</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <!-- 管理功能（仅admin可见） -->
+            <div id="adminSection" class="mt-6 hidden">
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">管理功能</h3>
+                        <div class="space-y-4">
+                            <button id="kickoutUserBtn" class="w-full sm:w-auto inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                踢出用户
+                            </button>
+                            <button onclick="window.location.href='/admin.html'" class="ml-3 w-full sm:w-auto inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                管理页面
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 踢出用户模态框 -->
+    <div id="kickoutModal" class="hidden fixed z-10 inset-0 overflow-y-auto">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+                <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start">
+                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900">踢出用户</h3>
+                            <div class="mt-2">
+                                <p class="text-sm text-gray-500">选择要踢出的用户，踢出后该用户的所有登录会话将失效。</p>
+                            </div>
+                            <div class="mt-4">
+                                <select id="kickoutUsername" class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                    <option value="">请选择用户</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button id="confirmKickout" type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm">
+                        踢出
+                    </button>
+                    <button id="cancelKickout" type="button" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                        取消
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 提示信息 -->
+    <div id="alert" class="hidden fixed bottom-4 right-4 max-w-sm w-full bg-white rounded-lg shadow-lg p-4">
+        <div class="flex items-start">
+            <div class="flex-shrink-0">
+                <svg id="alert-icon" class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+            <div class="ml-3 w-0 flex-1">
+                <p id="alert-message" class="text-sm font-medium text-gray-900"></p>
+            </div>
+            <div class="ml-4 flex-shrink-0 flex">
+                <button onclick="hideAlert()" class="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    <span class="sr-only">关闭</span>
+                    <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import {
+            getCurrentUserApi,
+            getOnlineUsersApi,
+            getUserTokensApi,
+            kickoutUserApi,
+            logoutApi,
+            checkLoginStatus
+        } from '/js/api.js';
+
+        // 页面加载时获取用户信息
+        window.addEventListener('DOMContentLoaded', async () => {
+            // 检查是否已登录
+            const isLoggedIn = await checkLoginStatus();
+            if (!isLoggedIn) {
+                window.location.href = '/login.html';
+                return;
+            }
+
+            // 获取当前用户信息
+            try {
+                const result = await getCurrentUserApi();
+                if (result && result.data) {
+                    const user = result.data;
+                    document.getElementById('username').textContent = user.username;
+                    document.getElementById('userInfo-username').textContent = user.username;
+                    document.getElementById('userInfo-ip').textContent = user.ip || '当前IP';
+                    document.getElementById('userInfo-device').textContent = user.device || '当前设备';
+
+                    // 格式化时间
+                    const loginTime = new Date(user.loginTime);
+                    document.getElementById('loginTime').textContent = loginTime.toLocaleString();
+                    document.getElementById('userInfo-expire').textContent = new Date(user.expireTime).toLocaleString();
+
+                    // 如果是admin，显示管理功能
+                    if (user.username === 'admin') {
+                        document.getElementById('adminSection').classList.remove('hidden');
+                    }
+                }
+            } catch (error) {
+                console.error('获取用户信息失败:', error);
+            }
+
+            // 显示在线用户数
+            await loadOnlineUsers();
+
+            // 加载用户Token信息
+            const username = document.getElementById('username').textContent;
+            await loadUserTokens(username);
+        });
+
+        // 加载在线用户
+        async function loadOnlineUsers() {
+            try {
+                const result = await getOnlineUsersApi();
+                if (result && result.data) {
+                    document.getElementById('onlineCount').textContent = result.data.length;
+                }
+            } catch (error) {
+                console.error('加载在线用户失败:', error);
+            }
+        }
+
+        // 加载用户Token信息
+        async function loadUserTokens(username) {
+            try {
+                const result = await getUserTokensApi(username);
+                if (result && result.data) {
+                    document.getElementById('deviceCount').textContent = result.data.length;
+                }
+            } catch (error) {
+                console.error('加载用户信息失败:', error);
+            }
+        }
+
+        // 显示在线用户列表
+        async function showOnlineUsers() {
+            try {
+                const result = await getOnlineUsersApi();
+                if (result && result.data) {
+                    showAlert(`在线用户：${result.data.join(', ')}`, 'info');
+                }
+            } catch (error) {
+                console.error('获取在线用户失败:', error);
+            }
+        }
+
+        // 显示我的Tokens
+        async function showMyTokens() {
+            const username = document.getElementById('username').textContent;
+            try {
+                const result = await getUserTokensApi(username);
+                if (result && result.data) {
+                    showAlert(`您当前有 ${result.data.length} 个有效登录会话`, 'info');
+                }
+            } catch (error) {
+                console.error('获取Token信息失败:', error);
+            }
+        }
+
+        // 显示踢出用户模态框
+        async function showKickoutModal() {
+            try {
+                const result = await getOnlineUsersApi();
+                if (result && result.data) {
+                    const select = document.getElementById('kickoutUsername');
+                    select.innerHTML = '<option value="">请选择用户</option>';
+
+                    result.data.forEach(user => {
+                        if (user !== 'admin') { // 不允许踢出管理员
+                            const option = document.createElement('option');
+                            option.value = user;
+                            option.textContent = user;
+                            select.appendChild(option);
+                        }
+                    });
+
+                    document.getElementById('kickoutModal').classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('获取在线用户失败:', error);
+            }
+        }
+
+        // 关闭踢出用户模态框
+        function closeKickoutModal() {
+            document.getElementById('kickoutModal').classList.add('hidden');
+        }
+
+        // 执行踢出用户
+        async function doKickout() {
+            const username = document.getElementById('kickoutUsername').value;
+            if (!username) {
+                showAlert('请选择要踢出的用户', 'error');
+                return;
+            }
+
+            try {
+                const result = await kickoutUserApi(username);
+
+                if (result && result.code === 200) {
+                    showAlert(result.message, 'success');
+                    closeKickoutModal();
+                    await loadOnlineUsers(); // 刷新在线用户列表
+                } else {
+                    showAlert(result.message, 'error');
+                }
+            } catch (error) {
+                console.error('踢出用户失败:', error);
+                showAlert('踢出用户失败', 'error');
+            }
+        }
+
+        // 退出登录
+        async function logout() {
+            if (confirm('确定要退出登录吗？')) {
+                try {
+                    await logoutApi();
+                } catch (error) {
+                    console.error('退出登录失败:', error);
+                } finally {
+                    window.location.href = '/login.html';
+                }
+            }
+        }
+
+        // 刷新页面
+        function refreshPage() {
+            window.location.reload();
+        }
+
+        // 显示提示信息
+        function showAlert(message, type = 'success') {
+            const alert = document.getElementById('alert');
+            const alertIcon = document.getElementById('alert-icon');
+            const alertMessage = document.getElementById('alert-message');
+
+            alertMessage.textContent = message;
+
+            // 清除所有样式类
+            alertIcon.classList.remove('text-green-400', 'text-red-400', 'text-blue-400');
+            alert.classList.remove('bg-green-50', 'bg-red-50', 'bg-blue-50');
+            alertIcon.parentElement.classList.remove('bg-green-50', 'bg-red-50', 'bg-blue-50');
+
+            if (type === 'success') {
+                alertIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />';
+                alertIcon.classList.add('text-green-400');
+                alert.classList.add('bg-green-50');
+                alertIcon.parentElement.classList.add('bg-green-50');
+            } else if (type === 'error') {
+                alertIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />';
+                alertIcon.classList.add('text-red-400');
+                alert.classList.add('bg-red-50');
+                alertIcon.parentElement.classList.add('bg-red-50');
+            } else {
+                alertIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />';
+                alertIcon.classList.add('text-blue-400');
+                alert.classList.add('bg-blue-50');
+                alertIcon.parentElement.classList.add('bg-blue-50');
+            }
+
+            alert.classList.remove('hidden');
+
+            // 3秒后自动隐藏
+            setTimeout(() => {
+                alert.classList.add('hidden');
+            }, 3000);
+        }
+
+        // 隐藏提示信息
+        function hideAlert() {
+            document.getElementById('alert').classList.add('hidden');
+        }
+
+        // 绑定事件监听器
+        document.addEventListener('DOMContentLoaded', () => {
+            // 踢出用户按钮
+            document.getElementById('kickoutUserBtn')?.addEventListener('click', showKickoutModal);
+
+            // 关闭模态框按钮
+            document.getElementById('cancelKickout')?.addEventListener('click', closeKickoutModal);
+
+            // 确认踢出按钮
+            document.getElementById('confirmKickout')?.addEventListener('click', doKickout);
+        });
+
+        // 定期检查登录状态
+        setInterval(async () => {
+            const isLoggedIn = await checkLoginStatus();
+            if (!isLoggedIn) {
+                window.location.href = '/login.html';
+            }
+        }, 10000); // 每10秒检查一次
+    </script>
+</body>
+</html>
