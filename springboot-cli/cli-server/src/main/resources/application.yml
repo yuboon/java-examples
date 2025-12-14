@@ -1,0 +1,36 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: cli-server
+
+# CLI服务配置
+cli:
+  # 允许访问的服务列表，如果为空则允许所有实现了CommandHandler的服务
+  allowed-services:
+    - userService
+    - roleService
+    - systemService
+  # 是否启用命令执行日志
+  enable-execution-log: true
+  # 命令执行超时时间（毫秒）
+  execution-timeout: 30000
+
+# 日志配置
+logging:
+  level:
+    com.example.cli: DEBUG
+    org.springframework.security: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# 管理端点配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always

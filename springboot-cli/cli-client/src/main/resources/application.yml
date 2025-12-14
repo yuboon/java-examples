@@ -1,0 +1,34 @@
+spring:
+  application:
+    name: cli-client
+
+# CLI客户端配置
+cli:
+  client:
+    # 服务端URL
+    server-url: http://localhost:8080
+    # 请求超时时间（毫秒）
+    timeout: 30000
+    # 连接超时时间（毫秒）
+    connect-timeout: 5000
+    # 是否启用请求重试
+    retry-enabled: true
+    # 最大重试次数
+    max-retries: 3
+
+# Spring Shell配置
+shell:
+  # 启用交互模式
+  interactive:
+    enabled: true
+  # 历史记录
+  history:
+    enabled: true
+    size: 100
+
+# 日志配置
+logging:
+  level:
+    com.example.cli: INFO
+  pattern:
+    console: "%d{HH:mm:ss} %-5level %logger{36} - %msg%n"
