@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>配置差异比对工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        textarea { font-family: 'Consolas', 'Monaco', 'Courier New', monospace; }
+        .diff-line { font-family: 'Consolas', 'Monaco', 'Courier New', monospace; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
+        <!-- Header -->
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">配置差异比对工具</h1>
+            <p class="text-gray-600">基于 java-diff-utils 的文本/Properties/YAML 配置比对</p>
+        </header>
+
+        <!-- Mode Selection -->
+        <div class="bg-white rounded-lg shadow-md p-4 mb-6">
+            <div class="flex gap-4">
+                <button onclick="setMode('text')" id="btn-text"
+                        class="mode-btn px-4 py-2 rounded-lg font-medium transition-colors bg-blue-500 text-white">
+                    文本比对
+                </button>
+                <button onclick="setMode('properties')" id="btn-properties"
+                        class="mode-btn px-4 py-2 rounded-lg font-medium transition-colors bg-gray-200 text-gray-700 hover:bg-gray-300">
+                    Properties 比对
+                </button>
+                <button onclick="setMode('yaml')" id="btn-yaml"
+                        class="mode-btn px-4 py-2 rounded-lg font-medium transition-colors bg-gray-200 text-gray-700 hover:bg-gray-300">
+                    YAML 比对
+                </button>
+            </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <!-- Original Text -->
+            <div class="bg-white rounded-lg shadow-md p-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    <span id="label-original">原始配置</span>
+                </label>
+                <textarea id="original-text"
+                          class="w-full h-64 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                          placeholder="输入原始配置内容..."></textarea>
+            </div>
+
+            <!-- Revised Text -->
+            <div class="bg-white rounded-lg shadow-md p-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    <span id="label-revised">修改后配置</span>
+                </label>
+                <textarea id="revised-text"
+                          class="w-full h-64 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                          placeholder="输入修改后的配置内容..."></textarea>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex flex-wrap gap-4 mb-6">
+            <button onclick="compare()"
+                    class="px-6 py-3 bg-blue-500 text-white font-medium rounded-lg hover:bg-blue-600 transition-colors shadow-md">
+                开始比对
+            </button>
+            <button onclick="loadSample('text')"
+                    class="sample-btn px-6 py-3 bg-gray-500 text-white font-medium rounded-lg hover:bg-gray-600 transition-colors shadow-md">
+                加载文本示例
+            </button>
+            <button onclick="loadSample('properties')"
+                    class="sample-btn px-6 py-3 bg-gray-500 text-white font-medium rounded-lg hover:bg-gray-600 transition-colors shadow-md">
+                加载 Properties 示例
+            </button>
+            <button onclick="loadSample('yaml')"
+                    class="sample-btn px-6 py-3 bg-gray-500 text-white font-medium rounded-lg hover:bg-gray-600 transition-colors shadow-md">
+                加载 YAML 示例
+            </button>
+            <button onclick="clearAll()"
+                    class="px-6 py-3 bg-red-500 text-white font-medium rounded-lg hover:bg-red-600 transition-colors shadow-md">
+                清空
+            </button>
+        </div>
+
+        <!-- Result Area -->
+        <div id="result-container" class="bg-white rounded-lg shadow-md overflow-hidden hidden">
+            <div class="bg-gray-800 text-white px-4 py-2 font-medium">
+                比对结果
+            </div>
+            <div id="result-content"></div>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div id="loading" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg p-6 flex items-center gap-3">
+                <svg class="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg"
+                     fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                    </path>
+                </svg>
+                <span class="text-gray-700">比对中...</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentMode = 'text';
+
+        function setMode(mode) {
+            currentMode = mode;
+
+            // Update button styles
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.className = 'mode-btn px-4 py-2 rounded-lg font-medium transition-colors bg-gray-200 text-gray-700 hover:bg-gray-300';
+            });
+            document.getElementById('btn-' + mode).className =
+                'mode-btn px-4 py-2 rounded-lg font-medium transition-colors bg-blue-500 text-white';
+
+            // Update labels
+            const labels = {
+                text: { original: '原始文本', revised: '修改后文本' },
+                properties: { original: '原始 Properties', revised: '修改后 Properties' },
+                yaml: { original: '原始 YAML', revised: '修改后 YAML' }
+            };
+            document.getElementById('label-original').textContent = labels[mode].original;
+            document.getElementById('label-revised').textContent = labels[mode].revised;
+        }
+
+        async function compare() {
+            const original = document.getElementById('original-text').value;
+            const revised = document.getElementById('revised-text').value;
+
+            if (!original.trim() || !revised.trim()) {
+                alert('请输入需要比对的内容');
+                return;
+            }
+
+            showLoading(true);
+
+            try {
+                let endpoint = '/api/diff/text';
+                if (currentMode === 'properties') {
+                    endpoint = '/api/diff/properties/compare';
+                } else if (currentMode === 'yaml') {
+                    endpoint = '/api/diff/yaml/compare';
+                }
+
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ original, revised })
+                });
+
+                if (!response.ok) {
+                    throw new Error('比对失败');
+                }
+
+                const result = await response.json();
+                displayResult(result);
+            } catch (error) {
+                alert('比对失败: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function displayResult(result) {
+            const container = document.getElementById('result-container');
+            const content = document.getElementById('result-content');
+
+            if (currentMode === 'properties') {
+                displayPropertiesDiff(result, content);
+            } else {
+                displayGitStyleDiff(result, content);
+            }
+
+            container.classList.remove('hidden');
+        }
+
+        // Git 风格的文本/YAML diff 显示
+        function displayGitStyleDiff(result, content) {
+            if (!result.hasChanges || !result.diffLines || result.diffLines.length === 0) {
+                content.innerHTML = `
+                    <div class="p-8 text-center">
+                        <p class="text-green-600 font-medium text-lg">内容完全相同，无差异</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = `
+                <div class="grid grid-cols-2 border-collapse">
+                    <!-- Header -->
+                    <div class="bg-red-50 border-r border-b px-4 py-2 font-medium text-red-700 text-sm">
+                        原始内容
+                    </div>
+                    <div class="bg-green-50 border-b px-4 py-2 font-medium text-green-700 text-sm">
+                        修改后内容
+                    </div>
+            `;
+
+            result.diffLines.forEach(line => {
+                const type = line.type;
+                const leftContent = line.originalLine || '';
+                const rightContent = line.revisedLine || '';
+
+                let leftClass = '';
+                let rightClass = '';
+
+                if (type === 'EQUAL') {
+                    leftClass = 'bg-white';
+                    rightClass = 'bg-white';
+                } else if (type === 'DELETE') {
+                    leftClass = 'bg-red-100';
+                    rightClass = 'bg-gray-50';
+                } else if (type === 'INSERT') {
+                    leftClass = 'bg-gray-50';
+                    rightClass = 'bg-green-100';
+                } else if (type === 'CHANGE') {
+                    leftClass = 'bg-red-100';
+                    rightClass = 'bg-green-100';
+                }
+
+                html += `
+                    <div class="diff-line ${leftClass} border-r border-b px-2 py-1 text-sm overflow-x-auto whitespace-pre">${escapeHtml(leftContent)}</div>
+                    <div class="diff-line ${rightClass} border-b px-2 py-1 text-sm overflow-x-auto whitespace-pre">${escapeHtml(rightContent)}</div>
+                `;
+            });
+
+            html += '</div>';
+            content.innerHTML = html;
+        }
+
+        // Properties diff 显示
+        function displayPropertiesDiff(result, content) {
+            if (!result.hasChanges && !result.addedKeys?.length && !result.removedKeys?.length && !result.modifiedKeys?.length) {
+                content.innerHTML = `
+                    <div class="p-8 text-center">
+                        <p class="text-green-600 font-medium text-lg">配置内容完全相同，无差异</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // 构建所有配置项的列表用于 Git 风格显示
+            const allKeys = new Set();
+            if (result.removedKeys) result.removedKeys.forEach(k => allKeys.add(k));
+            if (result.addedKeys) result.addedKeys.forEach(k => allKeys.add(k));
+            if (result.modifiedKeys) result.modifiedKeys.forEach(k => allKeys.add(k));
+
+            // 构建左右对比的行
+            const lines = [];
+            allKeys.forEach(key => {
+                const isRemoved = result.removedKeys?.includes(key);
+                const isAdded = result.addedKeys?.includes(key);
+                const isModified = result.modifiedKeys?.includes(key);
+
+                if (isRemoved) {
+                    lines.push({ type: 'DELETE', key, left: `${key} = `, right: '' });
+                } else if (isAdded) {
+                    lines.push({ type: 'INSERT', key, left: '', right: `${key} = ` });
+                } else if (isModified) {
+                    const change = result.modifiedKeyChanges?.[key];
+                    lines.push({ type: 'CHANGE', key, left: `${key} = ${change?.oldValue || ''}`, right: `${key} = ${change?.newValue || ''}` });
+                }
+            });
+
+            let html = `
+                <div class="grid grid-cols-2 border-collapse">
+                    <div class="bg-red-50 border-r border-b px-4 py-2 font-medium text-red-700 text-sm">
+                        原始配置
+                    </div>
+                    <div class="bg-green-50 border-b px-4 py-2 font-medium text-green-700 text-sm">
+                        修改后配置
+                    </div>
+            `;
+
+            lines.forEach(line => {
+                let leftClass = 'bg-white';
+                let rightClass = 'bg-white';
+
+                if (line.type === 'DELETE') {
+                    leftClass = 'bg-red-100';
+                    rightClass = 'bg-gray-50';
+                } else if (line.type === 'INSERT') {
+                    leftClass = 'bg-gray-50';
+                    rightClass = 'bg-green-100';
+                } else if (line.type === 'CHANGE') {
+                    leftClass = 'bg-red-100';
+                    rightClass = 'bg-green-100';
+                }
+
+                html += `
+                    <div class="diff-line ${leftClass} border-r border-b px-2 py-1 text-sm">${escapeHtml(line.left)}</div>
+                    <div class="diff-line ${rightClass} border-b px-2 py-1 text-sm">${escapeHtml(line.right)}</div>
+                `;
+            });
+
+            html += '</div>';
+            content.innerHTML = html;
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function loadSample(type) {
+            const samples = {
+                text: {
+                    original: `server.port=8080
+server.name=MyApp
+database.url=jdbc:mysql://localhost:3306/mydb
+database.username=admin
+logging.level.root=INFO
+feature.enabled=true`,
+                    revised: `server.port=8080
+server.name=MyApp
+database.url=jdbc:mysql://localhost:3306/mydb
+database.username=admin
+logging.level.root=DEBUG
+feature.enabled=false
+cache.ttl=3600`
+                },
+                properties: {
+                    original: `# Application Configuration
+app.name=MyApplication
+app.version=1.0.0
+database.url=jdbc:mysql://localhost:3306/mydb
+database.username=root
+database.password=secret
+cache.enabled=true
+cache.ttl=300`,
+                    revised: `# Application Configuration
+app.name=MyApplication
+app.version=1.0.1
+database.url=jdbc:mysql://prod-db:3306/mydb
+database.username=admin
+database.password=secret
+cache.enabled=true
+cache.ttl=600
+cache.maxSize=1000`
+                },
+                yaml: {
+                    original: `server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/mydb
+    username: root
+    password: secret
+
+logging:
+  level:
+    root: INFO
+    com.example: DEBUG`,
+                    revised: `server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+spring:
+  datasource:
+    url: jdbc:mysql://prod-db:3306/mydb
+    username: admin
+    password: secret
+
+logging:
+  level:
+    root: WARN
+    com.example: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info`
+                }
+            };
+
+            const sample = samples[type];
+            document.getElementById('original-text').value = sample.original;
+            document.getElementById('revised-text').value = sample.revised;
+            setMode(type);
+            document.getElementById('result-container').classList.add('hidden');
+        }
+
+        function clearAll() {
+            document.getElementById('original-text').value = '';
+            document.getElementById('revised-text').value = '';
+            document.getElementById('result-container').classList.add('hidden');
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').classList.toggle('hidden', !show);
+        }
+
+        // Initialize with text mode
+        setMode('text');
+    </script>
+</body>
+</html>
