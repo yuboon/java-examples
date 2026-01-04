@@ -1,0 +1,18 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: springboot-pipeline
+
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      indent-output: true
+
+logging:
+  level:
+    root: INFO
+    com.example.pipeline: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
