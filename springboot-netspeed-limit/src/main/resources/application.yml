@@ -1,0 +1,11 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: bandwidth-limit
+
+logging:
+  level:
+    com.example.netspeed: DEBUG
+    org.springframework.web: INFO

@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spring Boot 带宽限速测试</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes pulse-progress {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .animate-pulse-progress {
+            animation: pulse-progress 2s ease-in-out infinite;
+        }
+        .speed-gauge {
+            background: conic-gradient(from 180deg, #10b981 0%, #3b82f6 50%, #6366f1 100%);
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 min-h-screen text-white">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <!-- Header -->
+        <header class="text-center mb-12">
+            <h1 class="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent mb-4">
+                Spring Boot 网络带宽限速
+            </h1>
+            <p class="text-slate-400 text-lg">基于令牌桶算法的多维度流量控制</p>
+        </header>
+
+        <!-- Stats Panel -->
+        <div class="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 mb-8 border border-slate-700">
+            <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+                限速统计信息
+                <span class="ml-auto text-sm text-slate-400" id="lastUpdateTime">-</span>
+            </h2>
+            <div id="stats" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <div class="bg-slate-700/50 rounded-xl p-4 text-center">
+                    <div class="text-2xl font-bold text-blue-400" id="globalBytesConsumed">-</div>
+                    <div class="text-sm text-slate-400">已传输字节</div>
+                </div>
+                <div class="bg-slate-700/50 rounded-xl p-4 text-center">
+                    <div class="text-2xl font-bold text-green-400" id="globalActualRate">-</div>
+                    <div class="text-sm text-slate-400">实际传输速率</div>
+                </div>
+                <div class="bg-slate-700/50 rounded-xl p-4 text-center">
+                    <div class="text-2xl font-bold text-cyan-400" id="globalUtilization">-</div>
+                    <div class="text-sm text-slate-400">令牌利用率</div>
+                </div>
+                <div class="bg-slate-700/50 rounded-xl p-4 text-center">
+                    <div class="text-2xl font-bold text-purple-400" id="globalTokens">-</div>
+                    <div class="text-sm text-slate-400">可用配额 (字节)</div>
+                </div>
+                <div class="bg-slate-700/50 rounded-xl p-4 text-center">
+                    <div class="text-2xl font-bold text-pink-400" id="apiCount">-</div>
+                    <div class="text-sm text-slate-400">API限速桶</div>
+                </div>
+                <div class="bg-slate-700/50 rounded-xl p-4 text-center">
+                    <div class="text-2xl font-bold text-yellow-400" id="userCount">-</div>
+                    <div class="text-sm text-slate-400">用户限速桶</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test Panels -->
+        <div class="grid md:grid-cols-2 gap-6 mb-8">
+            <!-- Global Limit -->
+            <div class="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold">全局限速</h3>
+                    <span class="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-sm">200 KB/s</span>
+                </div>
+                <p class="text-slate-400 text-sm mb-4">所有请求共享同一个限速桶，适合保护服务器整体带宽</p>
+                <button onclick="testDownload('/api/download/global', 'global')" class="w-full py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-xl font-medium transition-all duration-200 flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                    开始测试下载
+                </button>
+                <div id="progress-global" class="hidden mt-4">
+                    <div class="flex justify-between text-sm mb-2">
+                        <span>下载进度</span>
+                        <span id="speed-global">0 KB/s</span>
+                    </div>
+                    <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                        <div id="progressBar-global" class="h-full bg-gradient-to-r from-blue-500 to-blue-400 transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                    <div class="text-xs text-slate-400 mt-1" id="downloadStatus-global">准备中...</div>
+                </div>
+            </div>
+
+            <!-- API Limit -->
+            <div class="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold">API维度限速</h3>
+                    <span class="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-sm">500 KB/s</span>
+                </div>
+                <p class="text-slate-400 text-sm mb-4">每个接口独立限速，不同接口的限速桶互不影响</p>
+                <button onclick="testDownload('/api/download/api', 'api')" class="w-full py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-xl font-medium transition-all duration-200 flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                    开始测试下载
+                </button>
+                <div id="progress-api" class="hidden mt-4">
+                    <div class="flex justify-between text-sm mb-2">
+                        <span>下载进度</span>
+                        <span id="speed-api">0 KB/s</span>
+                    </div>
+                    <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                        <div id="progressBar-api" class="h-full bg-gradient-to-r from-green-500 to-green-400 transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                    <div class="text-xs text-slate-400 mt-1" id="downloadStatus-api">准备中...</div>
+                </div>
+            </div>
+
+            <!-- User Limit -->
+            <div class="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold">用户维度限速</h3>
+                    <span class="px-3 py-1 bg-purple-500/20 text-purple-400 rounded-full text-sm">200KB/s - 1MB/s</span>
+                </div>
+                <p class="text-slate-400 text-sm mb-4">根据用户类型限速，免费用户200KB/s，VIP用户1MB/s</p>
+                <div class="flex gap-2 mb-4">
+                    <button onclick="testDownload('/api/download/user', 'user-free', 'free')" class="flex-1 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm transition-colors">免费用户</button>
+                    <button onclick="testDownload('/api/download/user', 'user-vip', 'vip')" class="flex-1 py-2 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 rounded-lg text-sm transition-colors">VIP用户</button>
+                </div>
+                <div id="progress-user-free" class="hidden mt-4">
+                    <div class="flex justify-between text-sm mb-2">
+                        <span>免费用户下载</span>
+                        <span id="speed-user-free">0 KB/s</span>
+                    </div>
+                    <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                        <div id="progressBar-user-free" class="h-full bg-gradient-to-r from-orange-500 to-orange-400 transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                    <div class="text-xs text-slate-400 mt-1" id="downloadStatus-user-free">准备中...</div>
+                </div>
+                <div id="progress-user-vip" class="hidden mt-4">
+                    <div class="flex justify-between text-sm mb-2">
+                        <span>VIP用户下载</span>
+                        <span id="speed-user-vip">0 KB/s</span>
+                    </div>
+                    <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                        <div id="progressBar-user-vip" class="h-full bg-gradient-to-r from-purple-500 to-purple-400 transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                    <div class="text-xs text-slate-400 mt-1" id="downloadStatus-user-vip">准备中...</div>
+                </div>
+            </div>
+
+            <!-- IP Limit -->
+            <div class="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold">IP维度限速</h3>
+                    <span class="px-3 py-1 bg-yellow-500/20 text-yellow-400 rounded-full text-sm">300 KB/s</span>
+                </div>
+                <p class="text-slate-400 text-sm mb-4">根据客户端IP限速，每个IP地址拥有独立的限速桶</p>
+                <button onclick="testDownload('/api/download/ip', 'ip')" class="w-full py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 rounded-xl font-medium transition-all duration-200 flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                    开始测试下载
+                </button>
+                <div id="progress-ip" class="hidden mt-4">
+                    <div class="flex justify-between text-sm mb-2">
+                        <span>下载进度</span>
+                        <span id="speed-ip">0 KB/s</span>
+                    </div>
+                    <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                        <div id="progressBar-ip" class="h-full bg-gradient-to-r from-yellow-500 to-yellow-400 transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                    <div class="text-xs text-slate-400 mt-1" id="downloadStatus-ip">准备中...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Control Panel -->
+        <div class="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700">
+            <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+                控制面板
+            </h2>
+            <div class="flex flex-wrap gap-4">
+                <button onclick="refreshStats()" class="px-6 py-3 bg-slate-700 hover:bg-slate-600 rounded-xl transition-colors flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                    刷新统计
+                </button>
+                <button onclick="resetGlobal()" class="px-6 py-3 bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 rounded-xl transition-colors flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                    重置全局
+                </button>
+                <button onclick="resetAll()" class="px-6 py-3 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-xl transition-colors flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                    清除全部
+                </button>
+            </div>
+        </div>
+
+        <!-- Info Section -->
+        <div class="mt-8 bg-slate-800/30 rounded-2xl p-6 border border-slate-700">
+            <h3 class="text-lg font-semibold mb-4">关于限速算法</h3>
+            <div class="grid md:grid-cols-2 gap-6 text-sm text-slate-400">
+                <div>
+                    <h4 class="font-medium text-white mb-2">令牌桶算法原理</h4>
+                    <ul class="space-y-1">
+                        <li>• 桶容量：允许的突发流量上限</li>
+                        <li>• 填充速率：长期平均传输速度</li>
+                        <li>• 分块大小：影响流量平滑度</li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-medium text-white mb-2">应用场景</h4>
+                    <ul class="space-y-1">
+                        <li>• 文件下载服务的速度控制</li>
+                        <li>• 视频流媒体的带宽管理</li>
+                        <li>• API接口的响应限速</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 测试下载函数
+        function testDownload(url, id, userType = null) {
+            const progressDiv = document.getElementById(`progress-${id}`);
+            const progressBar = document.getElementById(`progressBar-${id}`);
+            const speedDisplay = document.getElementById(`speed-${id}`);
+            const statusDisplay = document.getElementById(`downloadStatus-${id}`);
+
+            progressDiv.classList.remove('hidden');
+            progressBar.style.width = '0%';
+            speedDisplay.textContent = 'Starting...';
+            statusDisplay.textContent = '正在连接...';
+
+            const startTime = Date.now();
+            let lastTime = startTime;
+            let totalLoaded = 0;
+            const chunks = []; // 收集所有数据块
+
+            const headers = {};
+            if (userType) {
+                headers['X-User-Type'] = userType;
+                headers['X-User-Id'] = `test-user-${userType}`;
+            }
+
+            console.log('Starting download:', url, 'with headers:', headers);
+
+            fetch(url, {
+                headers: headers
+            }).then(response => {
+                console.log('Response received:', response.status, response.headers);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                if (!response.body) {
+                    throw new Error('Response body is null');
+                }
+
+                const contentLength = response.headers.get('Content-Length');
+                const total = contentLength ? parseInt(contentLength) : 5 * 1024 * 1024;
+                const bandwidthLimit = response.headers.get('X-Bandwidth-Limit');
+                const bandwidthType = response.headers.get('X-Bandwidth-Type');
+                const bandwidthKey = response.headers.get('X-Bandwidth-Key');
+
+                // 获取文件名
+                const contentDisposition = response.headers.get('Content-Disposition');
+                let filename = `download-${id}-${Date.now()}.bin`;
+                if (contentDisposition) {
+                    const match = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                    if (match && match[1]) {
+                        filename = match[1].replace(/['"]/g, '');
+                    }
+                }
+
+                console.log('Bandwidth info:', { bandwidthLimit, bandwidthType, bandwidthKey });
+                statusDisplay.textContent = `限速: ${bandwidthLimit || '未知'}`;
+
+                const reader = response.body.getReader();
+                let refreshInterval = setInterval(refreshStats, 3000); // 下载期间每3秒刷新统计
+
+                function read() {
+                    reader.read().then(({ done, value }) => {
+                        if (done) {
+                            progressBar.style.width = '100%';
+                            speedDisplay.textContent = 'Complete!';
+                            statusDisplay.textContent = '下载完成，保存文件...';
+                            clearInterval(refreshInterval);
+
+                            // 创建 Blob 并触发下载
+                            const blob = new Blob(chunks, { type: 'application/octet-stream' });
+                            const downloadUrl = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = downloadUrl;
+                            a.download = filename;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(downloadUrl);
+
+                            statusDisplay.textContent = '下载完成! 已保存: ' + filename;
+                            setTimeout(refreshStats, 500);
+                            console.log('Download complete, total bytes:', totalLoaded);
+                            return;
+                        }
+
+                        const now = Date.now();
+                        const chunkSize = value.length;
+                        totalLoaded += chunkSize;
+                        chunks.push(value); // 收集数据块
+
+                        // 计算速度（使用累计平均值）
+                        const elapsedSeconds = (now - startTime) / 1000;
+                        const avgBytesPerSecond = Math.round(totalLoaded / elapsedSeconds);
+                        const speedKB = (avgBytesPerSecond / 1024).toFixed(2);
+                        speedDisplay.textContent = `${speedKB} KB/s`;
+
+                        // 更新进度
+                        const progress = Math.min((totalLoaded / total) * 100, 100);
+                        progressBar.style.width = `${progress}%`;
+                        statusDisplay.textContent = `已下载: ${formatBytes(totalLoaded)} / ${formatBytes(total)}`;
+
+                        read();
+                    }).catch(error => {
+                        console.error('Read error:', error);
+                        speedDisplay.textContent = 'Error';
+                        statusDisplay.textContent = '读取错误: ' + error.message;
+                        clearInterval(refreshInterval);
+                    });
+                }
+
+                read();
+            }).catch(error => {
+                console.error('Download error:', error);
+                speedDisplay.textContent = 'Error';
+                statusDisplay.textContent = '下载错误: ' + error.message;
+            });
+        }
+
+        function formatBytes(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+            if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+            return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+        }
+
+        // 刷新统计
+        function refreshStats() {
+            console.log('Refreshing stats...');
+            fetch('/api/stats')
+                .then(res => {
+                    if (!res.ok) {
+                        throw new Error(`HTTP ${res.status}`);
+                    }
+                    return res.json();
+                })
+                .then(data => {
+                    console.log('Stats received:', data);
+                    document.getElementById('globalBytesConsumed').textContent = data.globalBytesConsumed || '0 B';
+                    document.getElementById('globalActualRate').textContent = data.globalActualRate || '0 B/s';
+                    document.getElementById('globalUtilization').textContent = data.globalUtilization || '0%';
+                    document.getElementById('globalTokens').textContent = data.globalAvailableTokens || '0 B';
+                    document.getElementById('apiCount').textContent = data.apiBucketCount || 0;
+                    document.getElementById('userCount').textContent = data.userBucketCount || 0;
+
+                    // 更新时间戳
+                    const now = new Date();
+                    document.getElementById('lastUpdateTime').textContent =
+                        now.toLocaleTimeString() + '.' + Math.floor(now.getMilliseconds() / 100);
+                })
+                .catch(error => {
+                    console.error('Stats error:', error);
+                });
+        }
+
+        // 重置全局
+        function resetGlobal() {
+            fetch('/api/reset/global', { method: 'POST' })
+                .then(res => res.json())
+                .then(data => {
+                    refreshStats();
+                    alert(data.message);
+                });
+        }
+
+        // 清除全部
+        function resetAll() {
+            if (confirm('确定要清除所有限速桶吗？')) {
+                fetch('/api/reset/all', { method: 'POST' })
+                    .then(res => res.json())
+                    .then(data => {
+                        refreshStats();
+                        alert(data.message);
+                    });
+            }
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Page loaded, initializing...');
+            refreshStats();
+            // 定时刷新统计
+            setInterval(refreshStats, 5000);
+        });
+    </script>
+</body>
+</html>
