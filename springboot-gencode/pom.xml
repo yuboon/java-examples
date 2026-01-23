@@ -49,7 +49,7 @@
         <dependency>
             <groupId>cn.hutool</groupId>
             <artifactId>hutool-all</artifactId>
-            <version>4.6.6</version>
+            <version>5.8.21</version>
         </dependency>
 
         <!-- snakeyaml -->
